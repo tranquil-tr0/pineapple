@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server/main.ts",
+    "dev": "trap 'kill 0' EXIT; tsx watch src/server/main.ts & vite dev",
+    "dev:server": "tsx watch src/server/main.ts",
+    "dev:client": "vite dev",
     "build": "vite build && tsc --project tsconfig.server.json",
     "start": "node dist/server/main.js",
     "test": "npm run test:api && npm run test:e2e",
