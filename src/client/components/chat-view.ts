@@ -65,6 +65,11 @@ export class ChatView extends LitElement {
   // Pending tool calls for pi-web-ui MessageList
   private pendingToolCalls = new Set<string>();
 
+  // Partial tool results accumulated from tool_execution_update events.
+  // These are injected into the messages array so MessageList can show
+  // streaming tool output before the tool finishes.
+  private partialToolResults = new Map<string, AgentMessageData>();
+
   // The assistant message we're building during streaming
   private streamMsg: PartialAssistantMessage | null = null;
 
@@ -170,6 +175,7 @@ export class ChatView extends LitElement {
   private handleServerMessage(msg: ServerMessage) {
     switch (msg.type) {
       case "state":
+        this.partialToolResults.clear();
         this.messages = msg.messages || [];
         this.isStreaming = msg.isStreaming;
         if (msg.model) {
@@ -271,9 +277,37 @@ export class ChatView extends LitElement {
         break;
       }
 
+      case "tool_execution_update": {
+        const id = event.toolCallId as string | undefined;
+        if (!id) break;
+
+        // Build or update a partial tool result from the event's content/output
+        const content = event.content as
+          | Array<{ type: string; text?: string }>
+          | undefined;
+        const output = event.output as string | undefined;
+
+        if (content || output) {
+          const resultContent = content || [{ type: "text", text: output || "" }];
+          this.partialToolResults.set(id, {
+            role: "toolResult",
+            toolCallId: id,
+            toolName: (event.toolName as string) || "",
+            content: resultContent,
+            isError: false,
+            timestamp: Date.now(),
+          } as AgentMessageData);
+          this.scheduleStreamUpdate();
+        }
+        break;
+      }
+
       case "tool_execution_end": {
         const id = event.toolCallId as string | undefined;
-        if (id) this.pendingToolCalls.delete(id);
+        if (id) {
+          this.pendingToolCalls.delete(id);
+          this.partialToolResults.delete(id);
+        }
         break;
       }
 
@@ -282,6 +316,7 @@ export class ChatView extends LitElement {
           | { messages?: AgentMessageData[] }
           | undefined;
         if (data?.messages) {
+          this.partialToolResults.clear();
           this.messages = data.messages;
           this.scheduleScroll();
         }
@@ -296,8 +331,11 @@ export class ChatView extends LitElement {
 
   private finalizeStreaming() {
     if (this.streamMsg && this.streamMsg.content.length > 0) {
+      this.partialToolResults.clear();
       this.messages = [
-        ...this.messages,
+        ...this.messages.filter(
+          (m) => !(m as Record<string, unknown>)._partialToolResult,
+        ),
         this.streamMsg as unknown as AgentMessageData,
       ];
       this.streamMsg = null;
@@ -312,16 +350,30 @@ export class ChatView extends LitElement {
     requestAnimationFrame(() => {
       this.streamUpdatePending = false;
       // Trigger Lit re-render by creating new messages array ref
-      // with a deep-cloned streaming message appended
+      // with a deep-cloned streaming message appended, plus any
+      // partial tool results so MessageList can show live output.
+      const base = this.messages.filter(
+        (m) =>
+          m !== this._lastStreamClone &&
+          !(m as Record<string, unknown>)._partialToolResult,
+      );
+
+      // Append partial tool results (MessageList indexes toolResult
+      // messages by toolCallId and passes them to tool-message)
+      for (const partial of this.partialToolResults.values()) {
+        const tagged = { ...partial, _partialToolResult: true };
+        base.push(tagged as AgentMessageData);
+      }
+
       if (this.streamMsg) {
         const clone = JSON.parse(
           JSON.stringify(this.streamMsg),
         ) as AgentMessageData;
-        this.messages = [...this.messages.filter(
-          (m) => m !== this._lastStreamClone,
-        ), clone];
+        base.push(clone);
         this._lastStreamClone = clone;
       }
+
+      this.messages = base;
       this.scheduleScroll();
     });
   }
