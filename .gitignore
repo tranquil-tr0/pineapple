@@ -6,3 +6,9 @@ dist/
 test-results/
 playwright-report/
 .vite/
+
+# tsc build artifacts that land in src/
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
