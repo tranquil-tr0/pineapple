@@ -16,9 +16,7 @@ test.describe("Landing Page", () => {
     await page.goto("/");
     await expect(page.locator("session-list")).toBeAttached();
 
-    // Check header content within shadow DOM
-    const header = page.locator("session-list").locator("h1");
-    // Shadow DOM — use evaluate or pierce selectors
+    // session-list uses shadow DOM
     const title = await page
       .locator("session-list")
       .evaluate((el) => el.shadowRoot?.querySelector("h1")?.textContent);
@@ -37,10 +35,6 @@ test.describe("Landing Page", () => {
     baseURL,
   }) => {
     await page.goto("/");
-    const emptyText = await page.locator("session-list").evaluate((el) => {
-      return el.shadowRoot?.querySelector(".empty")?.textContent;
-    });
-    // May or may not be empty depending on leftover sessions
     // Just verify the page loaded without errors
     expect(
       await page.locator("session-list").evaluate((el) => !!el.shadowRoot),
@@ -118,15 +112,14 @@ test.describe("Chat View", () => {
     await page.goto(`/#/session/${sessionId}`);
     await expect(page.locator("chat-view")).toBeAttached();
 
-    // Verify the back button exists
+    // chat-view is light DOM — query directly
     const backBtn = await page.locator("chat-view").evaluate((el) => {
-      return !!el.shadowRoot?.querySelector(".back-btn");
+      return !!el.querySelector(".cv-back-btn");
     });
     expect(backBtn).toBe(true);
 
-    // Verify settings button exists
     const settingsBtn = await page.locator("chat-view").evaluate((el) => {
-      return !!el.shadowRoot?.querySelector(".settings-btn");
+      return !!el.querySelector(".cv-gear-btn");
     });
     expect(settingsBtn).toBe(true);
   });
@@ -135,9 +128,9 @@ test.describe("Chat View", () => {
     await page.goto(`/#/session/${sessionId}`);
     await expect(page.locator("chat-view")).toBeAttached();
 
-    // Check for chat-input component
+    // chat-view is light DOM; chat-input is shadow DOM
     const hasInput = await page.locator("chat-view").evaluate((el) => {
-      const chatInput = el.shadowRoot?.querySelector("chat-input");
+      const chatInput = el.querySelector("chat-input");
       if (!chatInput) return false;
       const textarea = chatInput.shadowRoot?.querySelector("textarea");
       const sendBtn = chatInput.shadowRoot?.querySelector(".send-btn");
@@ -151,7 +144,7 @@ test.describe("Chat View", () => {
     await expect(page.locator("chat-view")).toBeAttached();
 
     const isDisabled = await page.locator("chat-view").evaluate((el) => {
-      const chatInput = el.shadowRoot?.querySelector("chat-input");
+      const chatInput = el.querySelector("chat-input");
       const btn = chatInput?.shadowRoot?.querySelector(
         ".send-btn.send",
       ) as HTMLButtonElement;
@@ -165,7 +158,7 @@ test.describe("Chat View", () => {
     await expect(page.locator("chat-view")).toBeAttached();
 
     await page.locator("chat-view").evaluate((el) => {
-      const btn = el.shadowRoot?.querySelector(".back-btn") as HTMLElement;
+      const btn = el.querySelector(".cv-back-btn") as HTMLElement;
       btn?.click();
     });
 
@@ -193,15 +186,15 @@ test.describe("Settings Panel", () => {
     await page.goto(`/#/session/${sessionId}`);
     await expect(page.locator("chat-view")).toBeAttached();
 
-    // Click the settings button
+    // Click gear (chat-view is light DOM)
     await page.locator("chat-view").evaluate((el) => {
-      const btn = el.shadowRoot?.querySelector(".settings-btn") as HTMLElement;
+      const btn = el.querySelector(".cv-gear-btn") as HTMLElement;
       btn?.click();
     });
 
-    // Check that settings panel is open
+    // settings-panel is shadow DOM
     const isOpen = await page.locator("chat-view").evaluate((el) => {
-      const panel = el.shadowRoot?.querySelector("settings-panel");
+      const panel = el.querySelector("settings-panel");
       const panelDiv = panel?.shadowRoot?.querySelector(".panel");
       return panelDiv?.classList.contains("open");
     });
@@ -214,13 +207,13 @@ test.describe("Settings Panel", () => {
 
     // Open settings
     await page.locator("chat-view").evaluate((el) => {
-      const btn = el.shadowRoot?.querySelector(".settings-btn") as HTMLElement;
+      const btn = el.querySelector(".cv-gear-btn") as HTMLElement;
       btn?.click();
     });
 
-    // Check for theme buttons
+    // Check for theme buttons (settings-panel is shadow DOM)
     const themeLabels = await page.locator("chat-view").evaluate((el) => {
-      const panel = el.shadowRoot?.querySelector("settings-panel");
+      const panel = el.querySelector("settings-panel");
       const buttons = panel?.shadowRoot?.querySelectorAll(".theme-btn");
       return Array.from(buttons || []).map((b) => b.textContent?.trim());
     });
@@ -235,13 +228,13 @@ test.describe("Settings Panel", () => {
 
     // Open settings
     await page.locator("chat-view").evaluate((el) => {
-      const btn = el.shadowRoot?.querySelector(".settings-btn") as HTMLElement;
+      const btn = el.querySelector(".cv-gear-btn") as HTMLElement;
       btn?.click();
     });
 
-    // Check for thinking level buttons
+    // Check for thinking level buttons (settings-panel is shadow DOM)
     const levels = await page.locator("chat-view").evaluate((el) => {
-      const panel = el.shadowRoot?.querySelector("settings-panel");
+      const panel = el.querySelector("settings-panel");
       const buttons = panel?.shadowRoot?.querySelectorAll(".seg-btn");
       return Array.from(buttons || []).map((b) => b.textContent?.trim());
     });
@@ -282,6 +275,18 @@ test.describe("Responsive Layout", () => {
   });
 });
 
+test.describe("Session Not Found", () => {
+  test("shows 404 page for non-existent session", async ({ page }) => {
+    await page.goto("/#/session/nonexistent_session_id_12345");
+
+    // Should show not-found page
+    await expect(page.locator(".not-found")).toBeAttached({ timeout: 5000 });
+    const text = await page.locator(".not-found").textContent();
+    expect(text).toContain("Session not found");
+    expect(text).toContain("nonexistent_session_id_12345");
+  });
+});
+
 test.describe("Session Rename", () => {
   let sessionId: string;
 
@@ -302,19 +307,15 @@ test.describe("Session Rename", () => {
     await page.goto(`/#/session/${sessionId}`);
     await expect(page.locator("chat-view")).toBeAttached();
 
-    // Click the session title to enter rename mode
+    // chat-view is light DOM — click the title to enter rename mode
     await page.locator("chat-view").evaluate((el) => {
-      const title = el.shadowRoot?.querySelector(
-        ".session-title",
-      ) as HTMLElement;
+      const title = el.querySelector(".cv-title") as HTMLElement;
       title?.click();
     });
 
     // Type a new name
     await page.locator("chat-view").evaluate((el) => {
-      const input = el.shadowRoot?.querySelector(
-        ".title-input",
-      ) as HTMLInputElement;
+      const input = el.querySelector(".cv-title-input") as HTMLInputElement;
       if (input) {
         input.value = "Renamed via E2E";
         input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -323,9 +324,7 @@ test.describe("Session Rename", () => {
 
     // Press Enter to commit
     await page.locator("chat-view").evaluate((el) => {
-      const input = el.shadowRoot?.querySelector(
-        ".title-input",
-      ) as HTMLInputElement;
+      const input = el.querySelector(".cv-title-input") as HTMLInputElement;
       input?.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
       );
@@ -358,7 +357,7 @@ test.describe("Session Delete from Landing Page", () => {
     await page.goto("/");
     await page.waitForTimeout(500);
 
-    // Right-click the session to open context menu
+    // Right-click the session to open context menu (session-list is shadow DOM)
     await page.locator("session-list").evaluate((el, targetId) => {
       const items = el.shadowRoot?.querySelectorAll(".session-item");
       for (const item of items || []) {

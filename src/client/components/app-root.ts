@@ -1,17 +1,21 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 
+type Route =
+  | { page: "home" }
+  | { page: "session"; id: string }
+  | { page: "not-found"; id: string };
+
 /**
  * Root application shell with simple hash-based routing.
  *
  * Routes:
  *   #/           → session list (landing page)
- *   #/session/X  → chat view for session X
+ *   #/session/X  → chat view for session X (validates session exists)
  */
 @customElement("app-root")
 export class AppRoot extends LitElement {
-  @state() private route: { page: "home" } | { page: "session"; id: string } =
-    { page: "home" };
+  @state() private route: Route = { page: "home" };
 
   static styles = css`
     :host {
@@ -32,20 +36,48 @@ export class AppRoot extends LitElement {
     window.removeEventListener("hashchange", this.onHashChange);
   }
 
-  private onHashChange = () => {
+  private onHashChange = async () => {
     const hash = window.location.hash || "#/";
     const sessionMatch = hash.match(/^#\/session\/(.+)$/);
     if (sessionMatch) {
-      this.route = { page: "session", id: sessionMatch[1] };
+      const id = sessionMatch[1];
+      // Validate session exists
+      const exists = await this.sessionExists(id);
+      if (exists) {
+        this.route = { page: "session", id };
+      } else {
+        this.route = { page: "not-found", id };
+      }
     } else {
       this.route = { page: "home" };
     }
   };
 
-  render() {
-    if (this.route.page === "session") {
-      return html`<chat-view .sessionId=${this.route.id}></chat-view>`;
+  private async sessionExists(id: string): Promise<boolean> {
+    try {
+      const res = await fetch("/api/sessions");
+      if (!res.ok) return true; // assume exists on API error
+      const data = await res.json();
+      return data.sessions.some((s: { id: string }) => s.id === id);
+    } catch {
+      return true; // assume exists on network error
     }
-    return html`<session-list></session-list>`;
+  }
+
+  render() {
+    switch (this.route.page) {
+      case "session":
+        return html`<chat-view .sessionId=${this.route.id}></chat-view>`;
+      case "not-found":
+        return html`
+          <div class="not-found">
+            <h2>Session not found</h2>
+            <p>The session <code>${this.route.id}</code> does not exist.</p>
+            <a href="#/">Back to sessions</a>
+          </div>
+        `;
+      default:
+        return html`<session-list></session-list>`;
+    }
   }
 }

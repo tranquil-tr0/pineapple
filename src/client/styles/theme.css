@@ -129,3 +129,169 @@ code {
   background: var(--border);
   border-radius: 3px;
 }
+
+/* ---- Chat View (light DOM) ---- */
+
+chat-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.cv-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  min-height: 56px;
+}
+
+.cv-back-btn,
+.cv-gear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.cv-back-btn:hover,
+.cv-gear-btn:hover {
+  background: var(--surface-alt);
+}
+
+.cv-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  cursor: pointer;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.cv-title:hover {
+  color: var(--accent);
+}
+
+.cv-title-input {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.cv-messages {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 16px;
+  scroll-behavior: smooth;
+}
+
+.cv-banner {
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.cv-banner.reconnecting {
+  background: #fef3cd;
+  color: #856404;
+}
+
+.cv-banner.error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.cv-streaming-indicator {
+  max-width: var(--max-width);
+  margin: 8px auto 0;
+}
+
+.cv-streaming-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  background: var(--accent);
+  margin-left: 2px;
+  animation: cv-blink 1s step-end infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes cv-blink {
+  50% { opacity: 0; }
+}
+
+.cv-interrupted {
+  display: inline-block;
+  padding: 2px 10px;
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-top: 8px;
+  max-width: var(--max-width);
+}
+
+/* ---- Not-found page ---- */
+
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  gap: 16px;
+  padding: 40px;
+  text-align: center;
+}
+
+.not-found h2 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.not-found a {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ---- Desktop-specific: settings as dropdown ---- */
+
+@media (min-width: 768px) {
+  .cv-messages message-list {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    display: block;
+  }
+
+  /* Desktop: input area wider */
+  chat-input .input-row {
+    max-width: var(--max-width);
+  }
+}

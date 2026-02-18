@@ -1,5 +1,5 @@
-import { LitElement, html, css, nothing } from "lit";
-import { customElement, property, state, query } from "lit/decorators.js";
+import { LitElement, html, nothing } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import type {
   ClientMessage,
   ServerMessage,
@@ -7,16 +7,48 @@ import type {
   ThinkingLevel,
   AgentMessageData,
 } from "@shared/types.js";
-import type { MessageList } from "./message-list.js";
+
+/* ------------------------------------------------------------------ */
+/*  Lightweight interfaces for the streaming assistant message we      */
+/*  build locally. These match pi-ai's content-block shapes so that   */
+/*  pi-web-ui's <assistant-message> can render them.                  */
+/* ------------------------------------------------------------------ */
+
+interface TextBlock {
+  type: "text";
+  text: string;
+}
+interface ThinkingBlock {
+  type: "thinking";
+  thinking: string;
+}
+interface ToolCallBlock {
+  type: "toolCall";
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock;
+
+interface PartialAssistantMessage {
+  role: "assistant";
+  content: ContentBlock[];
+  timestamp: number;
+  stopReason?: string;
+}
 
 @customElement("chat-view")
 export class ChatView extends LitElement {
+  // ---- Light DOM — allows pi-web-ui's Tailwind styles to reach
+  //      its <message-list>, <assistant-message>, etc. ----
+  override createRenderRoot() {
+    return this;
+  }
+
   @property({ type: String }) sessionId = "";
 
   @state() private messages: AgentMessageData[] = [];
   @state() private isStreaming = false;
-  @state() private streamingText = "";
-  @state() private streamingThinking = "";
   @state() private currentModel = "";
   @state() private currentProvider = "";
   @state() private currentThinkingLevel: ThinkingLevel = "off";
@@ -28,114 +60,27 @@ export class ChatView extends LitElement {
   @state() private error = "";
   @state() private renamingName = false;
   @state() private editName = "";
+  @state() private wasInterrupted = false;
 
-  @query("message-list") private messageList!: MessageList;
+  // Pending tool calls for pi-web-ui MessageList
+  private pendingToolCalls = new Set<string>();
 
+  // The assistant message we're building during streaming
+  private streamMsg: PartialAssistantMessage | null = null;
+
+  // WebSocket
   private ws: WebSocket | null = null;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Auto-scroll
   private shouldAutoScroll = true;
+  private scrollContainer: HTMLElement | null = null;
 
-  static styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      background: var(--bg);
-    }
+  // Batched streaming render
+  private streamUpdatePending = false;
 
-    header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      flex-shrink: 0;
-      min-height: 56px;
-    }
-
-    .back-btn, .settings-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      border-radius: var(--radius);
-      color: var(--text-primary);
-      font-size: 1.2rem;
-      flex-shrink: 0;
-    }
-
-    .back-btn:hover, .settings-btn:hover {
-      background: var(--surface-alt);
-    }
-
-    .session-title {
-      flex: 1;
-      font-weight: 600;
-      font-size: 1rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      text-align: center;
-      cursor: pointer;
-      min-width: 0;
-    }
-
-    .session-title:hover {
-      color: var(--accent);
-    }
-
-    .title-input {
-      flex: 1;
-      font-weight: 600;
-      font-size: 1rem;
-      padding: 4px 8px;
-      border: 2px solid var(--accent);
-      border-radius: 4px;
-      background: var(--bg);
-      color: var(--text-primary);
-      outline: none;
-      font-family: inherit;
-      min-width: 0;
-    }
-
-    message-list {
-      flex: 1;
-      min-height: 0;
-    }
-
-    .banner {
-      padding: 8px 16px;
-      text-align: center;
-      font-size: 0.85rem;
-      flex-shrink: 0;
-    }
-
-    .banner.reconnecting {
-      background: #fef3cd;
-      color: #856404;
-    }
-
-    .banner.error {
-      background: var(--error-bg);
-      color: var(--error);
-    }
-
-    .banner.connected {
-      background: #d4edda;
-      color: #155724;
-      animation: fadeOut 2s ease 1s forwards;
-    }
-
-    @keyframes fadeOut {
-      to { opacity: 0; height: 0; padding: 0; overflow: hidden; }
-    }
-  `;
+  // ---- Lifecycle ----
 
   connectedCallback() {
     super.connectedCallback();
@@ -148,15 +93,20 @@ export class ChatView extends LitElement {
     this.cleanup();
   }
 
-  // Re-connect when session ID changes
   updated(changed: Map<string, unknown>) {
     if (changed.has("sessionId") && changed.get("sessionId") !== undefined) {
       this.cleanup();
       this.messages = [];
-      this.streamingText = "";
-      this.streamingThinking = "";
+      this.streamMsg = null;
+      this.wasInterrupted = false;
       this.connect();
       this.loadSessionName();
+    }
+
+    // Grab scroll container ref after render
+    if (!this.scrollContainer) {
+      this.scrollContainer = this.querySelector(".cv-messages");
+      this.scrollContainer?.addEventListener("scroll", this.onScroll);
     }
   }
 
@@ -174,7 +124,6 @@ export class ChatView extends LitElement {
       this.reconnecting = false;
       this.reconnectAttempt = 0;
       this.error = "";
-      // Request available models
       this.wsSend({ type: "get_available_models" });
     };
 
@@ -199,6 +148,8 @@ export class ChatView extends LitElement {
       this.ws.close();
       this.ws = null;
     }
+    this.scrollContainer?.removeEventListener("scroll", this.onScroll);
+    this.scrollContainer = null;
   }
 
   private scheduleReconnect() {
@@ -225,7 +176,8 @@ export class ChatView extends LitElement {
           this.currentProvider = msg.model.provider;
           this.currentModel = msg.model.id;
         }
-        this.currentThinkingLevel = (msg.thinkingLevel as ThinkingLevel) || "off";
+        this.currentThinkingLevel =
+          (msg.thinkingLevel as ThinkingLevel) || "off";
         this.scheduleScroll();
         break;
 
@@ -247,8 +199,7 @@ export class ChatView extends LitElement {
     switch (event.type) {
       case "agent_start":
         this.isStreaming = true;
-        this.streamingText = "";
-        this.streamingThinking = "";
+        this.wasInterrupted = false;
         break;
 
       case "agent_end":
@@ -257,21 +208,55 @@ export class ChatView extends LitElement {
         break;
 
       case "message_start":
-        this.streamingText = "";
-        this.streamingThinking = "";
+        // Start accumulating a new assistant message
+        this.streamMsg = {
+          role: "assistant",
+          content: [],
+          timestamp: Date.now(),
+        };
         break;
 
       case "message_update": {
-        const sub = event.assistantMessageEvent as {
-          type: string;
-          delta?: string;
-        } | undefined;
+        if (!this.streamMsg) break;
+        const sub = event.assistantMessageEvent as
+          | { type: string; delta?: string; contentIndex?: number; toolCall?: ToolCallBlock }
+          | undefined;
         if (!sub) break;
+
         if (sub.type === "text_delta" && sub.delta) {
-          this.streamingText += sub.delta;
-          this.scheduleScroll();
+          const last =
+            this.streamMsg.content[this.streamMsg.content.length - 1];
+          if (last?.type === "text") {
+            (last as TextBlock).text += sub.delta;
+          } else {
+            this.streamMsg.content.push({
+              type: "text",
+              text: sub.delta,
+            });
+          }
+          this.scheduleStreamUpdate();
         } else if (sub.type === "thinking_delta" && sub.delta) {
-          this.streamingThinking += sub.delta;
+          const last =
+            this.streamMsg.content[this.streamMsg.content.length - 1];
+          if (last?.type === "thinking") {
+            (last as ThinkingBlock).thinking += sub.delta;
+          } else {
+            this.streamMsg.content.push({
+              type: "thinking",
+              thinking: sub.delta,
+            });
+          }
+          this.scheduleStreamUpdate();
+        } else if (sub.type === "toolcall_end" && sub.toolCall) {
+          const tc = sub.toolCall;
+          this.streamMsg.content.push({
+            type: "toolCall",
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments || {},
+          });
+          this.pendingToolCalls.add(tc.id);
+          this.scheduleStreamUpdate();
         }
         break;
       }
@@ -280,17 +265,22 @@ export class ChatView extends LitElement {
         this.finalizeStreaming();
         break;
 
-      case "tool_execution_start":
-      case "tool_execution_update":
-      case "tool_execution_end":
-        // We'll pick these up via refreshed state; for now, store them
-        // as part of the streaming state. We could also maintain a
-        // pending tool calls list here.
+      case "tool_execution_start": {
+        const id = event.toolCallId as string | undefined;
+        if (id) this.pendingToolCalls.add(id);
         break;
+      }
+
+      case "tool_execution_end": {
+        const id = event.toolCallId as string | undefined;
+        if (id) this.pendingToolCalls.delete(id);
+        break;
+      }
 
       case "response": {
-        // RPC response — might contain state data
-        const data = event.data as { messages?: AgentMessageData[] } | undefined;
+        const data = event.data as
+          | { messages?: AgentMessageData[] }
+          | undefined;
         if (data?.messages) {
           this.messages = data.messages;
           this.scheduleScroll();
@@ -299,33 +289,54 @@ export class ChatView extends LitElement {
       }
 
       case "turn_end":
-        // Refresh full state to capture tool results
         this.wsSend({ type: "get_state" });
         break;
     }
   }
 
   private finalizeStreaming() {
-    if (this.streamingText || this.streamingThinking) {
-      // Build a complete assistant message from the streaming content
-      const content: unknown[] = [];
-      if (this.streamingThinking) {
-        content.push({ type: "thinking", thinking: this.streamingThinking });
-      }
-      if (this.streamingText) {
-        content.push({ type: "text", text: this.streamingText });
-      }
+    if (this.streamMsg && this.streamMsg.content.length > 0) {
       this.messages = [
         ...this.messages,
-        { role: "assistant", content } as AgentMessageData,
+        this.streamMsg as unknown as AgentMessageData,
       ];
-      this.streamingText = "";
-      this.streamingThinking = "";
+      this.streamMsg = null;
       this.scheduleScroll();
     }
   }
 
+  /** Batch streaming UI updates to avoid excessive renders. */
+  private scheduleStreamUpdate() {
+    if (this.streamUpdatePending) return;
+    this.streamUpdatePending = true;
+    requestAnimationFrame(() => {
+      this.streamUpdatePending = false;
+      // Trigger Lit re-render by creating new messages array ref
+      // with a deep-cloned streaming message appended
+      if (this.streamMsg) {
+        const clone = JSON.parse(
+          JSON.stringify(this.streamMsg),
+        ) as AgentMessageData;
+        this.messages = [...this.messages.filter(
+          (m) => m !== this._lastStreamClone,
+        ), clone];
+        this._lastStreamClone = clone;
+      }
+      this.scheduleScroll();
+    });
+  }
+
+  private _lastStreamClone: AgentMessageData | null = null;
+
   // ---- Auto-scroll ----
+
+  private onScroll = () => {
+    const el = this.scrollContainer;
+    if (!el) return;
+    // If user scrolled up more than 80px from bottom, pause auto-scroll
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    this.shouldAutoScroll = distFromBottom < 80;
+  };
 
   private scrollRequestPending = false;
 
@@ -334,7 +345,9 @@ export class ChatView extends LitElement {
     this.scrollRequestPending = true;
     requestAnimationFrame(() => {
       this.scrollRequestPending = false;
-      this.messageList?.scrollToBottom();
+      if (this.scrollContainer) {
+        this.scrollContainer.scrollTop = this.scrollContainer.scrollHeight;
+      }
     });
   }
 
@@ -342,26 +355,33 @@ export class ChatView extends LitElement {
 
   private onSend(e: CustomEvent<string>) {
     const text = e.detail;
-    // Add user message locally for immediate feedback
     this.messages = [
       ...this.messages,
-      { role: "user", content: text } as AgentMessageData,
+      { role: "user", content: text, timestamp: Date.now() } as AgentMessageData,
     ];
+    this._lastStreamClone = null;
+    this.shouldAutoScroll = true;
     this.wsSend({ type: "prompt", text });
     this.scheduleScroll();
   }
 
   private onSteer(e: CustomEvent<string>) {
     const text = e.detail;
+    // Mark current response as interrupted
+    this.wasInterrupted = true;
+    this.finalizeStreaming();
     this.messages = [
       ...this.messages,
-      { role: "user", content: text } as AgentMessageData,
+      { role: "user", content: text, timestamp: Date.now() } as AgentMessageData,
     ];
+    this._lastStreamClone = null;
+    this.shouldAutoScroll = true;
     this.wsSend({ type: "steer", text });
     this.scheduleScroll();
   }
 
   private onStop() {
+    this.wasInterrupted = true;
     this.wsSend({ type: "abort" });
   }
 
@@ -397,8 +417,8 @@ export class ChatView extends LitElement {
     this.editName = this.sessionName;
     this.renamingName = true;
     this.updateComplete.then(() => {
-      const input = this.shadowRoot?.querySelector(
-        ".title-input",
+      const input = this.querySelector(
+        ".cv-title-input",
       ) as HTMLInputElement;
       input?.focus();
       input?.select();
@@ -434,15 +454,18 @@ export class ChatView extends LitElement {
 
   render() {
     return html`
-      <header>
-        <button class="back-btn" @click=${() => (window.location.hash = "#/")}>
+      <div class="cv-header">
+        <button
+          class="cv-back-btn"
+          @click=${() => (window.location.hash = "#/")}
+        >
           &#8592;
         </button>
 
         ${this.renamingName
           ? html`
               <input
-                class="title-input"
+                class="cv-title-input"
                 .value=${this.editName}
                 @input=${(e: InputEvent) =>
                   (this.editName = (e.target as HTMLInputElement).value)}
@@ -451,34 +474,45 @@ export class ChatView extends LitElement {
               />
             `
           : html`
-              <div class="session-title" @click=${this.startRename}>
+              <div class="cv-title" @click=${this.startRename}>
                 ${this.sessionName}
               </div>
             `}
 
         <button
-          class="settings-btn"
+          class="cv-gear-btn"
           @click=${() => (this.settingsOpen = true)}
         >
           &#9881;
         </button>
-      </header>
+      </div>
 
       ${this.reconnecting
-        ? html`<div class="banner reconnecting">
-            Connection lost. Reconnecting...
+        ? html`<div class="cv-banner reconnecting">
+            Connection lost. Reconnecting&hellip;
           </div>`
         : nothing}
       ${this.error
-        ? html`<div class="banner error">${this.error}</div>`
+        ? html`<div class="cv-banner error">${this.error}</div>`
         : nothing}
 
-      <message-list
-        .messages=${this.messages}
-        .isStreaming=${this.isStreaming}
-        .streamingText=${this.streamingText}
-        .streamingThinking=${this.streamingThinking}
-      ></message-list>
+      <div class="cv-messages">
+        <message-list
+          .messages=${this.messages}
+          .isStreaming=${this.isStreaming}
+          .pendingToolCalls=${this.pendingToolCalls}
+        ></message-list>
+
+        ${this.isStreaming
+          ? html`<div class="cv-streaming-indicator">
+              <span class="cv-streaming-cursor"></span>
+            </div>`
+          : nothing}
+
+        ${this.wasInterrupted && !this.isStreaming
+          ? html`<div class="cv-interrupted">Interrupted</div>`
+          : nothing}
+      </div>
 
       <chat-input
         .isStreaming=${this.isStreaming}

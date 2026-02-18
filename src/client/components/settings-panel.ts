@@ -33,6 +33,7 @@ export class SettingsPanel extends LitElement {
       z-index: 99;
     }
 
+    /* Mobile: full-height slide-in from right */
     .panel {
       position: fixed;
       top: 0;
@@ -51,6 +52,30 @@ export class SettingsPanel extends LitElement {
 
     .panel.open {
       transform: translateX(0);
+    }
+
+    /* Desktop (>= 768px): dropdown anchored top-right */
+    @media (min-width: 768px) {
+      .panel {
+        position: fixed;
+        top: 56px;
+        right: 16px;
+        bottom: auto;
+        width: 320px;
+        max-height: calc(100vh - 80px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        transform: translateY(-8px);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+
+      .panel.open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
 
     .panel-header {
@@ -279,11 +304,15 @@ export class SettingsPanel extends LitElement {
   private onThemeChange(theme: "auto" | "light" | "dark") {
     this.theme = theme;
     if (theme === "auto") {
-      document.documentElement.removeAttribute("data-theme");
       localStorage.removeItem("pi-theme");
     } else {
-      document.documentElement.setAttribute("data-theme", theme);
       localStorage.setItem("pi-theme", theme);
+    }
+    // Delegate to shared theme logic (syncs data-theme + .dark class)
+    const applyTheme = (window as unknown as Record<string, unknown>)
+      .__applyTheme as ((t: string | null) => void) | undefined;
+    if (applyTheme) {
+      applyTheme(theme === "auto" ? null : theme);
     }
   }
 }
