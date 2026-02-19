@@ -158,6 +158,7 @@ export interface ModelInfo {
 // Generic agent message (mirrors pi's message structure loosely)
 export interface AgentMessageData {
   role: string;
+  id?: string;
   [key: string]: unknown;
 }
 

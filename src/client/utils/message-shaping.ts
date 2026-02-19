@@ -8,13 +8,19 @@ export interface SidebarEntry {
 
 export type SidebarFilterMode = "default" | "no-tools" | "user-only" | "all";
 
-export function messageDomId(sourceIndex: number): string {
+export function messageDomId(sourceIndex: number, message?: AgentMessageData): string {
+  if (message?.id) {
+    return `msg-${message.id}`;
+  }
   return `msg-${sourceIndex}`;
 }
 
 export function messageTargetId(message: AgentMessageData, renderIndex: number): string {
   if ((message as any)._targetId) {
     return (message as any)._targetId;
+  }
+  if (message.id) {
+    return `msg-${message.id}`;
   }
   return `msg-r-${renderIndex}`;
 }
@@ -101,7 +107,7 @@ export function getRenderableMessages(messages: AgentMessageData[]): AgentMessag
       return [];
     }
 
-    const targetId = messageDomId(sourceIndex);
+    const targetId = messageDomId(sourceIndex, message);
     return [{ ...message, _targetId: targetId } as AgentMessageData];
   });
 }
