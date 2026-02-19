@@ -174,7 +174,12 @@ describe("Session listing from JSONL files", () => {
     );
     expect(s1).toBeDefined();
     expect(s1.name).toBe("First Session");
-    expect(s1.messageCount).toBe(2);
+    expect(s1.messageStats).toEqual({
+      userMessages: 1,
+      assistantMessages: 1,
+      toolCalls: 0,
+      totalMessages: 2,
+    });
     expect(s1.createdAt).toBe("2026-01-01T00:00:00.000Z");
     expect(s1.activity).toBeDefined();
     expect(typeof s1.activity.state).toBe("string");
@@ -184,7 +189,12 @@ describe("Session listing from JSONL files", () => {
     );
     expect(s2).toBeDefined();
     expect(s2.name).toBe("Tell me about TypeScript generics and how they work");
-    expect(s2.messageCount).toBe(1);
+    expect(s2.messageStats).toEqual({
+      userMessages: 1,
+      assistantMessages: 0,
+      toolCalls: 0,
+      totalMessages: 1,
+    });
   });
 
   it("sessions are sorted by lastActivityAt descending", async () => {
@@ -301,7 +311,8 @@ describe("Session CRUD with real pi", () => {
     expect(session).toBeDefined();
     expect(session.createdAt).toBeDefined();
     expect(session.lastActivityAt).toBeDefined();
-    expect(typeof session.messageCount).toBe("number");
+    expect(session.messageStats).toBeDefined();
+    expect(typeof session.messageStats.totalMessages).toBe("number");
   });
 
   it("PATCH /api/sessions/:id renames the session", async () => {
