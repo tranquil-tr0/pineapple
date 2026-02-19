@@ -13,6 +13,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: [".ts.net"],
     proxy: {
       "/api": {
         target: "http://localhost:3000",
