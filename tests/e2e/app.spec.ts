@@ -644,11 +644,13 @@ test.describe("Chat View", () => {
       messages: [
         {
           role: "user",
+          id: "m1",
           content: "first",
           timestamp: new Date(Date.now() - 1000).toISOString(),
         },
         {
           role: "assistant",
+          id: "m2",
           content: [{ type: "text", text: "second" }],
           timestamp: new Date().toISOString(),
         },
@@ -656,9 +658,9 @@ test.describe("Chat View", () => {
     });
 
     try {
-      await page.goto(`/#/session/${seededId}?target=msg-1`);
+      await page.goto(`/#/session/${seededId}?target=msg-m2`);
       await expect(page.locator("chat-view")).toBeAttached();
-      await expect(page.locator("chat-view #msg-1")).toBeVisible();
+      await expect(page.locator("chat-view #msg-m2")).toBeVisible();
       await expect(page.locator("chat-view .copy-link-btn")).toHaveCount(0);
     } finally {
       await deleteSession(baseURL!, seededId);

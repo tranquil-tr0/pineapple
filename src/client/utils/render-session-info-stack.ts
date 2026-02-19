@@ -57,21 +57,26 @@ export function renderSessionInfoStack({
   return html`
     <div class="cv-info-stack">
       <div class="cv-info-card cv-metadata-card">
+        <div class="cv-info-title">Session metadata</div>
         <div class="cv-info-header">
           ${renamingName
             ? html`
-                <input
-                  class="cv-info-title-input"
-                  .value=${editName}
-                  @input=${onEditNameInput}
-                  @keydown=${onTitleKeydown}
-                  @blur=${onCommitRename}
-                  autofocus
-                />
+                <div class="cv-title-row">
+                  <input
+                    class="cv-title-input cv-info-title-input"
+                    .value=${editName}
+                    @input=${onEditNameInput}
+                    @keydown=${onTitleKeydown}
+                    @blur=${onCommitRename}
+                    autofocus
+                  />
+                </div>
               `
             : html`
-                <div class="cv-info-title-name" @click=${onStartRename} title="Click to rename">
-                  ${sessionName}
+                <div class="cv-title-row">
+                  <div class="cv-title cv-info-title-name" @click=${onStartRename} title="Click to rename">
+                    ${sessionName}
+                  </div>
                 </div>
               `}
         </div>

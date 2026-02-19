@@ -587,8 +587,8 @@ export class ChatView extends LitElement {
     const error = rs?.error ?? "";
 
     return html`
-      <button class="cv-floating-back-btn" @click=${() => (window.location.hash = "#/")} title="Back to session list">&#8592;</button>
-      <button class="cv-floating-gear-btn" @click=${() => (this.settingsOpen = true)} title="Settings">&#9881;</button>
+      <button class="cv-back-btn cv-floating-back-btn" @click=${() => (window.location.hash = "#/")} title="Back to session list">&#8592;</button>
+      <button class="cv-gear-btn cv-floating-gear-btn" @click=${() => (this.settingsOpen = true)} title="Settings">&#9881;</button>
 
       ${reconnecting ? html`<div class="cv-banner reconnecting">Connection lost. Reconnecting&hellip;</div>` : nothing}
       ${connected && rs?.modelsLoaded && !rs?.currentModel

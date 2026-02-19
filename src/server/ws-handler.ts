@@ -9,6 +9,7 @@ import type {
   ModelInfo,
   SlashCommandSpec,
   ImageContent,
+  AgentMessageData,
 } from "@shared/types.js";
 
 type PendingCommand =
@@ -74,10 +75,9 @@ export async function handleSessionWebSocket(
       const id = event.id as string;
       const pending = pendingCommands.get(id);
       if (pending) {
-        pendingCommands.delete(id);
-
         const success = event.success !== false;
         if (!success) {
+          pendingCommands.delete(id);
           sendJson(ws, {
             type: "error",
             message:
@@ -94,11 +94,16 @@ export async function handleSessionWebSocket(
           ws,
           rpc,
           pendingCommands,
+          sessionId,
+          sessions,
+          event, // Pass the event to get original ID if needed
         );
         if (handled) {
+          pendingCommands.delete(id);
           return;
         }
 
+        pendingCommands.delete(id);
         // get_messages and other responses fall through as agent events.
       }
     }
@@ -339,6 +344,9 @@ function handlePendingRpcResponse(
   ws: WebSocket,
   rpc: RpcProcess,
   pendingCommands: Map<string, PendingCommand>,
+  sessionId: string,
+  sessions: SessionManager,
+  event: RpcEvent,
 ): boolean {
   switch (pending.kind) {
     case "get_state": {
@@ -499,9 +507,71 @@ function handlePendingRpcResponse(
       return true;
     }
 
-    case "get_messages":
+    case "get_messages": {
+      const liveMessages = (data?.messages as AgentMessageData[]) || [];
+      sessions.getHistory(sessionId).then((history) => {
+        const merged = mergeMessages(history, liveMessages);
+        sendJson(ws, {
+          type: "agent_event",
+          event: {
+            type: "response",
+            id: event.id, // Echo the original request ID
+            command: "get_messages",
+            success: true,
+            data: { messages: merged },
+          } as RpcEvent,
+        });
+      });
+      return true;
+    }
+
+    default:
       return false;
   }
+}
+
+export function mergeMessages(
+  history: AgentMessageData[],
+  live: AgentMessageData[],
+): AgentMessageData[] {
+  if (live.length === 0) return history;
+
+  // Find the intersection point
+  let splitIndex = -1;
+  const firstLive = live[0];
+
+  // If live[0] has an ID, try to find it in history
+  if (firstLive.id) {
+    splitIndex = history.findIndex((m) => m.id === firstLive.id);
+  }
+
+  // Fallback: match by role and timestamp if ID is missing or not found
+  if (splitIndex === -1 && firstLive.timestamp) {
+    splitIndex = history.findIndex(
+      (m) => m.role === firstLive.role && m.timestamp === firstLive.timestamp,
+    );
+  }
+
+  if (splitIndex === -1) {
+    // No intersection found. 
+    // Avoid double-appending if live[0] looks like it COULD be in history but we missed it
+    return [...history, ...live];
+  }
+
+  // Restore IDs from history to live messages to maintain consistency
+  for (let i = 0; i < live.length; i++) {
+    const historyIdx = splitIndex + i;
+    if (historyIdx < history.length && !live[i].id) {
+      const h = history[historyIdx];
+      const l = live[i];
+      if (h.role === l.role && h.timestamp === l.timestamp) {
+        live[i].id = h.id;
+      }
+    }
+  }
+
+  // Join everything before the intersection with all live messages (which now have IDs)
+  return [...history.slice(0, splitIndex), ...live];
 }
 
 function hasMessageType(value: unknown): value is { type: string } {

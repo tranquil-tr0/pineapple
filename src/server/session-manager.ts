@@ -5,6 +5,7 @@ import type {
   SessionMeta,
   RpcEvent,
   SessionActivityState,
+  AgentMessageData,
 } from "@shared/types.js";
 import type { ServerConfig } from "./config.js";
 
@@ -562,6 +563,81 @@ export class SessionManager {
       return false;
     }
     return true;
+  }
+
+  async getHistory(sessionId: string): Promise<AgentMessageData[]> {
+    const sessionFile = await this.findSessionFile(sessionId);
+    if (!sessionFile) return [];
+
+    const filePath = join(this.config.sessionDir, sessionFile);
+    try {
+      const content = await readFile(filePath, "utf-8");
+      const lines = content.split("\n").filter((l) => l.trim());
+
+      const byId = new Map<string, any>();
+      const entries: any[] = [];
+
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.id) {
+            byId.set(entry.id, entry);
+            entries.push(entry);
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (entries.length === 0) return [];
+
+      // Find the last message or compaction as our leaf
+      let leaf = entries[entries.length - 1];
+      // Walk from leaf to root to get the current branch path
+      const path: any[] = [];
+      let current = leaf;
+      while (current) {
+        path.unshift(current);
+        current = current.parentId ? byId.get(current.parentId) : null;
+      }
+
+      const messages: AgentMessageData[] = [];
+      for (const entry of path) {
+        if (entry.type === "message" && entry.message) {
+          messages.push({ ...entry.message, id: entry.id });
+        } else if (entry.type === "compaction" && entry.summary) {
+          messages.push({
+            role: "compactionSummary",
+            summary: entry.summary,
+            tokensBefore: entry.tokensBefore,
+            timestamp: new Date(entry.timestamp).getTime(),
+            id: entry.id,
+          } as AgentMessageData);
+        } else if (entry.type === "custom_message") {
+          messages.push({
+            role: "custom",
+            customType: entry.customType,
+            content: entry.content,
+            display: entry.display,
+            details: entry.details,
+            timestamp: new Date(entry.timestamp).getTime(),
+            id: entry.id,
+          } as AgentMessageData);
+        } else if (entry.type === "branch_summary" && entry.summary) {
+          messages.push({
+            role: "branchSummary",
+            summary: entry.summary,
+            fromId: entry.fromId,
+            timestamp: new Date(entry.timestamp).getTime(),
+            id: entry.id,
+          } as AgentMessageData);
+        }
+      }
+      return messages;
+    } catch (e) {
+      console.error(`Failed to read history for session ${sessionId}:`, e);
+      return [];
+    }
   }
 
   private pruneRecentClientActivity(now: number): void {
