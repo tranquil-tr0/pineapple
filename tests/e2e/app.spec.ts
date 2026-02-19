@@ -138,17 +138,37 @@ test.describe("Landing Page", () => {
     await expect(page.locator("session-list .new-btn")).toContainText("New");
   });
 
+  test("shows cwd in session meta", async ({ page, baseURL }) => {
+    const id = await createSession(baseURL!);
+    await page.goto("/");
+    const sessionItem = page.locator("session-list .session-item").first();
+    await expect(sessionItem).toBeVisible({ timeout: 5000 });
+    await deleteSession(baseURL!, id);
+  });
+
   test("shows empty state when no sessions exist", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("session-list")).toBeAttached();
   });
 
-  test("clicking + New creates a session and navigates to chat view", async ({
+  test("clicking + New opens project picker", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("session-list .new-btn").click();
+
+    await expect(page.locator("session-list .project-picker")).toBeVisible();
+  });
+
+  test("project picker Enter key creates a session and navigates to chat view", async ({
     page,
     baseURL,
   }) => {
     await page.goto("/");
     await page.locator("session-list .new-btn").click();
+    await expect(page.locator("session-list .project-picker")).toBeVisible();
+
+    const input = page.locator("session-list .project-cwd-input");
+    await input.fill(E2E_CWD);
+    await input.press("Enter");
 
     await expect(page).toHaveURL(/#\/session\//);
     await expect(page.locator("chat-view")).toBeAttached();

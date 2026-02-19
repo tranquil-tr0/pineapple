@@ -144,7 +144,8 @@ export class SessionList extends LitElement {
     }
 
     .session-main {
-      padding-right: 40px;
+      flex: 1;
+      min-width: 0;
     }
 
     .session-name-row {
@@ -232,10 +233,7 @@ export class SessionList extends LitElement {
     }
 
     .session-menu-btn {
-      position: absolute;
-      top: 50%;
-      right: 12px;
-      transform: translateY(-50%);
+      flex-shrink: 0;
       width: 26px;
       height: 26px;
       border: 1px solid transparent;
@@ -665,10 +663,10 @@ export class SessionList extends LitElement {
   render() {
     return html`
       <header>
-        <h1>🍕</h1>
-        <button class="new-btn" @click=${this.createSession}>
+        <h1>Pi Web UI</h1>
+        <button class="new-btn" @click=${this.openProjectPicker}>
           <span class="plus">+</span>
-          <span>New session</span>
+          <span>New</span>
         </button>
       </header>
 
@@ -708,6 +706,49 @@ export class SessionList extends LitElement {
               <button class="danger" @click=${this.deleteSession}>
                 Delete
               </button>
+            </div>
+          `
+        : nothing}
+
+      ${this.showProjectPicker
+        ? html`
+            <div class="backdrop" @click=${this.closeProjectPicker}></div>
+            <div class="project-picker">
+              ${this.projects.length > 0
+                ? html`
+                    <div class="project-picker-label">Recent projects</div>
+                    ${this.projects.map(
+                      (p) => html`
+                        <button
+                          class="project-item"
+                          @click=${() => this.createSessionWithCwd(p.cwd)}
+                        >
+                          <div class="project-item-path">${p.displayPath}</div>
+                          <div class="project-item-meta">${p.sessionCount} session${p.sessionCount === 1 ? "" : "s"}</div>
+                        </button>
+                      `,
+                    )}
+                    <hr class="project-picker-divider" />
+                  `
+                : nothing}
+              <div class="project-picker-label">Enter directory path</div>
+              <div class="project-cwd-form">
+                <input
+                  class="project-cwd-input"
+                  type="text"
+                  placeholder="/path/to/project"
+                  .value=${this.cwdInput}
+                  @input=${(e: InputEvent) => (this.cwdInput = (e.target as HTMLInputElement).value)}
+                  @keydown=${this.onCwdInputKeydown}
+                />
+                <button
+                  class="project-cwd-go"
+                  @click=${() => {
+                    const val = this.cwdInput.trim();
+                    if (val) this.createSessionWithCwd(val);
+                  }}
+                >Go</button>
+              </div>
             </div>
           `
         : nothing}
