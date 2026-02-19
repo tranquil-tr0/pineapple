@@ -6,7 +6,7 @@ export interface SidebarEntry {
   targetId: string;
 }
 
-export type SidebarFilterMode = "default" | "no-tools" | "user-only" | "all";
+export type SidebarFilterMode = "no-tools" | "user-only" | "all";
 
 export function messageDomId(sourceIndex: number, message?: AgentMessageData): string {
   if (message?.id) {

@@ -86,7 +86,7 @@ export class ChatView extends LitElement {
   @state() private showThinking = true;
   @state() private expandToolOutputs = false;
   @state() private sidebarSearch = "";
-  @state() private sidebarFilter: SidebarFilterMode = "default";
+  @state() private sidebarFilter: SidebarFilterMode = "no-tools";
   @state() private sessionCreatedAt = "";
   @state() private sessionLastActivityAt = "";
   @state() private hostCwd = "";
@@ -657,7 +657,6 @@ export class ChatView extends LitElement {
     const error = rs?.error ?? "";
 
     return html`
-      <a class="cv-back-btn cv-floating-back-btn" href="#/" title="Back to session list">&#8592;</a>
       <button class="cv-gear-btn cv-floating-gear-btn" @click=${() => (this.settingsOpen = true)} title="Settings">&#9881;</button>
 
       ${reconnecting ? html`<div class="cv-banner reconnecting">Connection lost. Reconnecting&hellip;</div>` : nothing}
@@ -677,6 +676,7 @@ export class ChatView extends LitElement {
         })}
 
         <div class="cv-main-col">
+          <a class="cv-back-btn" href="#/" title="Back to session list">&#8592;</a>
           <div class="cv-messages">
             ${renderSessionInfoStack({
               sessionId: this.sessionId,

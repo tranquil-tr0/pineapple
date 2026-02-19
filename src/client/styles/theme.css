@@ -169,7 +169,6 @@ chat-view {
 
 /* Removed .cv-header and related per issue #12 */
 
-.cv-floating-back-btn,
 .cv-floating-gear-btn {
   position: fixed;
   z-index: 100;
@@ -188,23 +187,42 @@ chat-view {
   line-height: 1;
   opacity: 0.6;
   transition: opacity 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  top: 10px;
+  right: 10px;
 }
 
-.cv-floating-back-btn:hover,
 .cv-floating-gear-btn:hover {
   opacity: 1;
   border-color: var(--border);
   background: var(--surface-alt);
 }
 
-.cv-floating-back-btn {
-  top: 10px;
-  left: 10px;
+.cv-back-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid var(--borderMuted);
+  background: var(--surface);
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.cv-floating-gear-btn {
-  top: 10px;
-  right: 10px;
+.cv-back-btn:hover {
+  opacity: 1;
+  border-color: var(--border);
+  background: var(--surface-alt);
 }
 
 .cv-info-header {
@@ -370,13 +388,6 @@ chat-view {
   flex: 1;
 }
 
-.cv-tree-status {
-  padding: 4px 12px;
-  border-top: 1px solid var(--dim);
-  color: var(--muted);
-  font-size: 10px;
-}
-
 .cv-sidebar-sessions {
   border-top: 1px solid var(--dim);
   padding: 6px 0 4px;
@@ -430,6 +441,7 @@ chat-view {
 }
 
 .cv-main-col {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;

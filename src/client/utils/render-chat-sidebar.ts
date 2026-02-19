@@ -1,6 +1,6 @@
 import { html, nothing } from "lit";
 
-type SidebarFilterMode = "default" | "no-tools" | "user-only" | "all";
+type SidebarFilterMode = "no-tools" | "user-only" | "all";
 
 type SidebarRole = "user" | "assistant" | "tool";
 
@@ -28,7 +28,6 @@ interface RenderChatSidebarOptions {
 }
 
 const SIDEBAR_FILTERS: Array<[SidebarFilterMode, string]> = [
-  ["default", "Default"],
   ["no-tools", "No-tools"],
   ["user-only", "User"],
   ["all", "All"],
@@ -81,8 +80,6 @@ export function renderChatSidebar({
           `,
         )}
       </div>
-
-      <div class="cv-tree-status">${entries.length} entries</div>
 
       ${activeSessions.length > 0
         ? html`
