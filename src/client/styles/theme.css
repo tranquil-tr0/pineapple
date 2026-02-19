@@ -167,61 +167,77 @@ chat-view {
   background: var(--bg);
 }
 
-.cv-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  min-height: 48px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
+/* Removed .cv-header and related per issue #12 */
 
-.cv-back-btn,
-.cv-gear-btn {
+.cv-floating-back-btn,
+.cv-floating-gear-btn {
+  position: fixed;
+  z-index: 100;
   width: 32px;
   height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid var(--borderMuted);
+  background: var(--surface);
   color: var(--text-primary);
   cursor: pointer;
   font-size: 15px;
   line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.cv-back-btn:hover,
-.cv-gear-btn:hover {
-  border-color: var(--borderMuted);
+.cv-floating-back-btn:hover,
+.cv-floating-gear-btn:hover {
+  opacity: 1;
+  border-color: var(--border);
   background: var(--surface-alt);
 }
 
-.cv-title {
+.cv-floating-back-btn {
+  top: 10px;
+  left: 10px;
+}
+
+.cv-floating-gear-btn {
+  top: 10px;
+  right: 10px;
+}
+
+.cv-info-header {
+  padding: 12px 14px 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv-info-title-name {
   flex: 1;
   min-width: 0;
-  font-size: 1.05rem;
+  font-size: 14px;
+  line-height: 1.5;
   font-weight: 700;
-  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  color: var(--text-primary);
 }
 
-.cv-title-input {
+.cv-info-title-input {
   flex: 1;
   min-width: 0;
-  font-size: 1.05rem;
+  font-size: 14px;
+  line-height: 1.5;
   font-weight: 700;
   font-family: inherit;
   background: var(--bg);
   color: var(--text-primary);
   border: 1px solid var(--borderAccent);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 2px 6px;
   outline: none;
 }
 
@@ -366,11 +382,124 @@ chat-view {
   min-height: 0;
 }
 
+.cv-editor-widget-stack {
+  border-top: 1px solid var(--borderMuted);
+  background: var(--surface);
+  padding: 4px 14px;
+}
+
+.cv-editor-widget-aboveEditor {
+  border-bottom: 1px solid var(--borderMuted);
+}
+
+.cv-editor-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cv-editor-widget + .cv-editor-widget {
+  margin-top: 6px;
+}
+
+.cv-editor-widget-line {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cv-editor-status .cv-editor-widget-stack {
+  border-top: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.cv-editor-status {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 14px 8px;
+}
+
+.cv-editor-status-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cv-editor-status-workspace,
+.cv-editor-status-left,
+.cv-editor-status-right {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.cv-editor-status-workspace,
+.cv-editor-status-left {
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-editor-status-right {
+  margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.cv-editor-status-dot {
+  color: var(--text-secondary);
+}
+
+.cv-status-select {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.35;
+  border-radius: 4px;
+  padding: 1px 4px;
+  max-width: 240px;
+}
+
+.cv-status-select:hover:not(:disabled),
+.cv-status-select:focus-visible {
+  border-color: var(--borderMuted);
+  outline: none;
+}
+
+.cv-status-select:disabled {
+  opacity: 0.7;
+}
+
+.cv-status-select-model {
+  min-width: 130px;
+}
+
+.cv-status-select-thinking {
+  min-width: 70px;
+}
+
 .cv-shortcuts {
+  width: min(100%, var(--max-width));
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px 0;
+  padding: 8px 0 0;
 }
 
 .cv-shortcut-btn {
@@ -397,39 +526,48 @@ chat-view {
 }
 
 .cv-info-stack {
-  padding: 10px 14px 0;
+  width: min(100%, var(--max-width));
+  margin: 0 auto;
+  padding: 10px 0 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .cv-info-card {
-  background: var(--surface);
-  border-radius: 4px;
-  padding: 10px 12px;
-  border: 1px solid rgba(128, 128, 128, 0.35);
+  background: var(--customMessageBg);
+  color: var(--customMessageText);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.cv-info-card summary {
+.cv-info-card > summary {
   cursor: pointer;
   list-style: none;
+  padding: 12px 14px;
 }
 
-.cv-info-card summary::-webkit-details-marker {
+.cv-info-card > summary::-webkit-details-marker {
   display: none;
 }
 
 .cv-info-title {
   font-size: 12px;
   font-weight: 700;
-  color: var(--borderAccent);
-  margin-bottom: 8px;
+  color: var(--customMessageLabel);
+  margin: 0;
+  padding: 12px 14px 0;
 }
 
-.cv-info-grid {
+.cv-info-card > summary.cv-info-title {
+  padding: 12px 14px;
+}
+
+.cv-info-card > .cv-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px 12px;
+  padding: 8px 14px 12px;
 }
 
 .cv-info-item {
@@ -451,6 +589,11 @@ chat-view {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.cv-info-card > summary + .cv-system-prompt-body,
+.cv-info-card > summary + .cv-tools-list {
+  padding: 0 14px 12px;
 }
 
 .cv-system-prompt-body pre {
@@ -490,6 +633,7 @@ chat-view {
 
 .cv-system-prompt-empty {
   color: var(--muted);
+  padding: 8px 14px 12px;
 }
 
 .cv-tools-list {
@@ -506,6 +650,7 @@ chat-view {
   display: flex;
   gap: 8px;
   align-items: baseline;
+  cursor: pointer;
 }
 
 .cv-tool-name {
@@ -553,45 +698,6 @@ chat-view {
 .cv-tool-param-desc {
   margin-left: 8px;
   color: var(--dim);
-}
-
-.cv-extension-status-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cv-extension-status-item {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.cv-extension-status-item span {
-  color: var(--dim);
-}
-
-.cv-extension-status-item strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.cv-extension-widget-item {
-  font-size: 11px;
-}
-
-.cv-extension-widget-item summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--text-primary);
-}
-
-.cv-extension-widget-item pre {
-  margin-top: 6px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--customMessageText);
 }
 
 .cv-extension-modal-backdrop {
@@ -751,7 +857,6 @@ chat-view {
 .custom-summary-card {
   background: var(--customMessageBg);
   color: var(--customMessageText);
-  border: 1px solid var(--borderMuted);
   position: relative;
 }
 
@@ -819,52 +924,11 @@ chat-view {
 }
 
 .branch-summary .custom-summary-toggle {
-  border-left: 2px solid var(--warning);
+  /* No left border per issue #11 */
 }
 
 .compaction .custom-summary-toggle {
-  border-left: 2px solid var(--borderAccent);
-}
-
-.copy-link-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--dim);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
-
-.user-message:hover .copy-link-btn,
-.assistant-message:hover .copy-link-btn,
-.tool-execution:hover .copy-link-btn,
-.custom-message:hover .copy-link-btn,
-.custom-summary-card:hover .copy-link-btn {
-  opacity: 1;
-}
-
-.copy-link-btn:hover {
-  background: var(--accent);
-  color: var(--body-bg);
-  border-color: var(--accent);
-}
-
-.copy-link-btn.copied {
-  opacity: 1;
-  background: var(--success);
-  color: var(--body-bg);
-  border-color: var(--success);
+  /* No left border per issue #11 */
 }
 
 .user-message.highlight,
@@ -1043,10 +1107,6 @@ chat-view {
 
 .line-numbers {
   color: var(--warning);
-}
-
-.line-count {
-  color: var(--dim);
 }
 
 .tool-command {
@@ -1384,5 +1444,20 @@ chat-view {
 
   .cv-info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cv-editor-status-row {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .cv-editor-status-right {
+    margin-left: 0;
+  }
+
+  .cv-editor-status-workspace,
+  .cv-editor-status-left,
+  .cv-editor-status-right {
+    white-space: normal;
   }
 }

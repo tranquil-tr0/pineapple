@@ -31,39 +31,40 @@ export class SessionList extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--borderMuted);
       background: var(--surface);
       flex-shrink: 0;
     }
 
     header h1 {
-      font-size: 1.25rem;
+      font-size: 14px;
       font-weight: 600;
+      margin: 0;
+      font-family: inherit;
     }
 
     .new-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 12px;
+      padding: 4px 8px;
       border: 1px solid var(--borderMuted);
       border-radius: 4px;
       background: var(--bg);
       color: var(--text-primary);
-      font-size: 0.85rem;
+      font-size: 14px;
       font-weight: 600;
-      line-height: 1;
+      line-height: 1.5;
       font-family: inherit;
       cursor: pointer;
-      min-height: 34px;
-      min-width: 34px;
+      min-height: 28px;
       transition: border-color 120ms ease, background-color 120ms ease;
     }
 
     .new-btn:hover {
       background: var(--surface-alt);
-      border-color: var(--border);
+      border-color: var(--dim);
     }
 
     .new-btn:focus-visible {
@@ -75,19 +76,19 @@ export class SessionList extends LitElement {
     .new-btn .plus {
       color: var(--accent);
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 14px;
     }
 
     .list {
       flex: 1;
       overflow-y: auto;
-      padding: 8px 0;
+      padding: 0;
     }
 
     .session-item {
       display: block;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      border-bottom: 0px solid transparent; /* Removed borders per issue #12 */
       cursor: pointer;
       text-decoration: none;
       color: inherit;
@@ -95,6 +96,11 @@ export class SessionList extends LitElement {
       -webkit-user-select: none;
       -webkit-touch-callout: none;
       position: relative;
+      transition: background-color 150ms ease;
+    }
+
+    .session-item:not(:last-child) {
+       margin-bottom: 2px; /* Extra spacing if borderless */
     }
 
     .session-item:hover {
@@ -110,38 +116,42 @@ export class SessionList extends LitElement {
     }
 
     .session-item.archived .session-name {
-      color: var(--text-secondary);
+      color: var(--muted);
       font-weight: 500;
+      font-family: inherit;
     }
 
     .session-main {
-      padding-right: 34px;
+      padding-right: 40px;
     }
 
     .session-name-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 12px;
+      margin-bottom: 2px;
       min-width: 0;
     }
 
     .session-name {
-      font-weight: 600;
-      font-size: 1rem;
+      font-weight: 700;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #ffffff;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
       flex: 1;
+      font-family: inherit;
     }
 
     .session-archived-badge {
       border: 1px solid var(--borderMuted);
-      color: var(--text-secondary);
+      color: var(--muted);
       border-radius: 999px;
-      padding: 1px 6px;
-      font-size: 0.62rem;
+      padding: 1px 8px;
+      font-size: 11px;
       line-height: 1.2;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -150,10 +160,10 @@ export class SessionList extends LitElement {
 
     .session-activity-badge {
       border: 1px solid var(--borderMuted);
-      color: var(--text-secondary);
+      color: var(--muted);
       border-radius: 999px;
-      padding: 1px 6px;
-      font-size: 0.62rem;
+      padding: 1px 8px;
+      font-size: 11px;
       line-height: 1.2;
       text-transform: uppercase;
       letter-spacing: 0.03em;
@@ -177,30 +187,38 @@ export class SessionList extends LitElement {
     }
 
     .session-meta {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--muted);
+      font-family: inherit;
     }
 
     .session-menu-btn {
       position: absolute;
-      top: 10px;
+      top: 50%;
       right: 12px;
+      transform: translateY(-50%);
       width: 26px;
       height: 26px;
       border: 1px solid transparent;
       border-radius: 5px;
       background: transparent;
-      color: var(--text-secondary);
+      color: var(--muted);
       cursor: pointer;
       font-size: 18px;
       line-height: 1;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      opacity: 0.75;
+      opacity: 0;
+      transition: opacity 120ms ease;
     }
 
-    .session-item:hover .session-menu-btn,
+    .session-item:hover .session-menu-btn {
+      opacity: 1;
+    }
+
+    .session-item:hover .session-menu-btn:hover,
     .session-menu-btn:focus-visible {
       opacity: 1;
       border-color: var(--borderMuted);
@@ -211,7 +229,7 @@ export class SessionList extends LitElement {
 
     .rename-input {
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 14px;
       padding: 2px 6px;
       border: 2px solid var(--accent);
       border-radius: 4px;
@@ -235,7 +253,7 @@ export class SessionList extends LitElement {
     }
 
     .empty-icon {
-      font-size: 2rem;
+      font-size: 24px;
       opacity: 0.5;
     }
 
@@ -251,7 +269,7 @@ export class SessionList extends LitElement {
       padding: 12px 20px;
       background: var(--error-bg);
       color: var(--error);
-      font-size: 0.9rem;
+      font-size: 14px;
     }
 
     /* Context menu */
@@ -273,7 +291,7 @@ export class SessionList extends LitElement {
       border: none;
       background: none;
       color: var(--text-primary);
-      font-size: 0.9rem;
+      font-size: 14px;
       text-align: left;
       cursor: pointer;
       font-family: inherit;
@@ -522,10 +540,17 @@ export class SessionList extends LitElement {
       s.activity?.state ?? "inactive",
     );
 
+    const metaParts = [
+      `${s.messageCount} msg`,
+      s.model || "unknown model",
+      relativeTime(s.lastActivityAt),
+    ];
+
     return html`
       <div
         class="session-item ${archived ? "archived" : ""}"
         @click=${() => this.openSession(s.id)}
+        title="Open session ${this.getSessionDisplayName(s)}"
         @contextmenu=${(e: MouseEvent) => this.onContextMenu(e, s.id)}
         @touchstart=${(e: TouchEvent) => this.onTouchStart(e, s.id)}
         @touchend=${this.onTouchEnd}
@@ -560,7 +585,7 @@ export class SessionList extends LitElement {
                 </div>
               `}
           <div class="session-meta">
-            ${s.messageCount} messages &middot; ${relativeTime(s.lastActivityAt)}
+            ${metaParts.join(" · ")}
           </div>
         </div>
         <button

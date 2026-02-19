@@ -1,13 +1,20 @@
 import { Router, json } from "express";
+import { spawnSync } from "child_process";
 import type { SessionManager } from "./session-manager.js";
 
 export function createRouter(sessions: SessionManager): Router {
   const router = Router();
+  const gitBranch = resolveGitBranch(sessions.cwd);
   router.use(json());
 
   // Health check
   router.get("/health", (_req, res) => {
-    res.json({ status: "ok", activeSessions: sessions.activeCount });
+    res.json({
+      status: "ok",
+      activeSessions: sessions.activeCount,
+      cwd: sessions.cwd,
+      gitBranch,
+    });
   });
 
   // List sessions
@@ -61,4 +68,20 @@ export function createRouter(sessions: SessionManager): Router {
   });
 
   return router;
+}
+
+function resolveGitBranch(cwd: string): string | undefined {
+  try {
+    const result = spawnSync("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+
+    if (result.status !== 0) return undefined;
+
+    const branch = result.stdout.trim();
+    return branch || undefined;
+  } catch {
+    return undefined;
+  }
 }

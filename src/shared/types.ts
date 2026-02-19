@@ -23,6 +23,7 @@ export interface SessionMeta {
   createdAt: string; // ISO 8601
   lastActivityAt: string; // ISO 8601
   messageCount: number;
+  model?: string;
   activity: SessionActivity;
 }
 
@@ -66,12 +67,20 @@ export type ServerMessage =
 
 export interface StateMessage {
   type: "state";
-  model: { provider: string; id: string } | null;
+  model:
+    | {
+        provider: string;
+        id: string;
+        contextWindow?: number;
+        maxTokens?: number;
+      }
+    | null;
   thinkingLevel: string;
   steeringMode?: QueueDeliveryMode;
   followUpMode?: QueueDeliveryMode;
   sessionName?: string;
   isStreaming: boolean;
+  autoCompactionEnabled?: boolean;
   messages: AgentMessageData[];
   messageCount?: number;
   pendingMessageCount?: number;

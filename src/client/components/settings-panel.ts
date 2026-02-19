@@ -1,33 +1,16 @@
 import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import type {
-  ModelInfo,
-  ThinkingLevel,
-  QueueDeliveryMode,
-} from "@shared/types.js";
-
-const THINKING_LEVELS: ThinkingLevel[] = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-];
+import type { QueueDeliveryMode } from "@shared/types.js";
 
 const QUEUE_MODES: QueueDeliveryMode[] = ["one-at-a-time", "all"];
 
 @customElement("settings-panel")
 export class SettingsPanel extends LitElement {
   @property({ type: Boolean }) open = false;
-  @property({ type: String }) currentModel = "";
-  @property({ type: String }) currentProvider = "";
-  @property({ type: String }) currentThinkingLevel: ThinkingLevel = "off";
   @property({ type: String }) currentSteeringMode: QueueDeliveryMode =
     "one-at-a-time";
   @property({ type: String }) currentFollowUpMode: QueueDeliveryMode =
     "one-at-a-time";
-  @property({ type: Array }) models: ModelInfo[] = [];
 
   @state() private theme: string =
     localStorage.getItem("pi-theme") || "auto";
@@ -138,25 +121,7 @@ export class SettingsPanel extends LitElement {
       margin-bottom: 6px;
     }
 
-    select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--bg);
-      color: var(--text-primary);
-      font-family: inherit;
-      font-size: 0.95rem;
-      appearance: auto;
-      min-height: 44px;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    /* Segmented control for thinking level */
+    /* Segmented controls */
     .segmented {
       display: flex;
       border: 1px solid var(--border);
@@ -233,46 +198,6 @@ export class SettingsPanel extends LitElement {
         </div>
         <div class="panel-body">
           <div class="field">
-            <label>Model</label>
-            <select @change=${this.onModelChange}>
-              ${this.models.map(
-                (m) => html`
-                  <option
-                    value="${m.provider}/${m.id}"
-                    ?selected=${m.provider === this.currentProvider &&
-                    m.id === this.currentModel}
-                  >
-                    ${m.label || `${m.provider}/${m.id}`}
-                  </option>
-                `,
-              )}
-              ${this.models.length === 0
-                ? html`<option disabled selected>
-                    ${this.currentProvider}/${this.currentModel || "loading..."}
-                  </option>`
-                : nothing}
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Thinking Level</label>
-            <div class="segmented">
-              ${THINKING_LEVELS.map(
-                (level) => html`
-                  <button
-                    class="seg-btn ${this.currentThinkingLevel === level
-                      ? "active"
-                      : ""}"
-                    @click=${() => this.onThinkingChange(level)}
-                  >
-                    ${level}
-                  </button>
-                `,
-              )}
-            </div>
-          </div>
-
-          <div class="field">
             <label>Steering Queue</label>
             <div class="segmented">
               ${QUEUE_MODES.map(
@@ -330,21 +255,6 @@ export class SettingsPanel extends LitElement {
 
   private close() {
     this.dispatchEvent(new CustomEvent("close"));
-  }
-
-  private onModelChange(e: Event) {
-    const value = (e.target as HTMLSelectElement).value;
-    const [provider, ...rest] = value.split("/");
-    const model = rest.join("/");
-    this.dispatchEvent(
-      new CustomEvent("model-change", { detail: { provider, model } }),
-    );
-  }
-
-  private onThinkingChange(level: ThinkingLevel) {
-    this.dispatchEvent(
-      new CustomEvent("thinking-change", { detail: level }),
-    );
   }
 
   private onSteeringModeChange(mode: QueueDeliveryMode) {

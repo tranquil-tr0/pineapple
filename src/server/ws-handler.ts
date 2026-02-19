@@ -29,6 +29,38 @@ const LOCAL_SHELL_MAX_OUTPUT_BYTES = 50 * 1024;
 const MAX_CLIENT_IMAGES_PER_MESSAGE = 6;
 const MAX_CLIENT_IMAGE_BYTES = 10 * 1024 * 1024;
 
+const CLIENT_MESSAGE_TYPES: ReadonlySet<ClientMessage["type"]> = new Set([
+  "prompt",
+  "steer",
+  "follow_up",
+  "bash",
+  "abort",
+  "get_state",
+  "set_model",
+  "set_thinking_level",
+  "set_steering_mode",
+  "set_follow_up_mode",
+  "get_available_models",
+  "get_commands",
+  "extension_ui_response",
+]);
+
+type ClientMessageHandlers = {
+  [K in ClientMessage["type"]]: (
+    msg: Extract<ClientMessage, { type: K }>,
+  ) => Promise<void> | void;
+};
+
+function dispatchClientMessage(
+  msg: ClientMessage,
+  handlers: ClientMessageHandlers,
+): Promise<void> | void {
+  const handler = handlers[msg.type] as (
+    msg: ClientMessage,
+  ) => Promise<void> | void;
+  return handler(msg);
+}
+
 export async function handleSessionWebSocket(
   ws: WebSocket,
   sessionId: string,
@@ -45,8 +77,6 @@ export async function handleSessionWebSocket(
         pendingCommands.delete(id);
 
         const success = event.success !== false;
-        const data = event.data as Record<string, unknown> | undefined;
-
         if (!success) {
           sendJson(ws, {
             type: "error",
@@ -57,152 +87,15 @@ export async function handleSessionWebSocket(
           return;
         }
 
-        if (pending.kind === "get_state") {
-          const model = data?.model as
-            | { provider?: string; modelId?: string; id?: string }
-            | null
-            | undefined;
-
-          sendJson(ws, {
-            type: "state",
-            model: model
-              ? {
-                  provider: model.provider || "",
-                  id: model.modelId || model.id || "",
-                }
-              : null,
-            thinkingLevel: (data?.thinkingLevel as string) || "off",
-            steeringMode:
-              data?.steeringMode === "all" ||
-              data?.steeringMode === "one-at-a-time"
-                ? data.steeringMode
-                : undefined,
-            followUpMode:
-              data?.followUpMode === "all" ||
-              data?.followUpMode === "one-at-a-time"
-                ? data.followUpMode
-                : undefined,
-            sessionName:
-              typeof data?.sessionName === "string"
-                ? data.sessionName
-                : undefined,
-            isStreaming: (data?.isStreaming as boolean) || false,
-            messages: [],
-            messageCount:
-              typeof data?.messageCount === "number"
-                ? (data.messageCount as number)
-                : undefined,
-            pendingMessageCount:
-              typeof data?.pendingMessageCount === "number"
-                ? (data.pendingMessageCount as number)
-                : undefined,
-            systemPrompt:
-              typeof data?.systemPrompt === "string"
-                ? (data.systemPrompt as string)
-                : undefined,
-            tools: Array.isArray(data?.tools)
-              ? (data.tools as Array<Record<string, unknown>>).map((tool) => ({
-                  name: (tool.name as string) || "tool",
-                  description: (tool.description as string) || "",
-                  parameters:
-                    tool.parameters && typeof tool.parameters === "object"
-                      ? (tool.parameters as {
-                          properties?: Record<
-                            string,
-                            { type?: string; description?: string }
-                          >;
-                          required?: string[];
-                        })
-                      : undefined,
-                }))
-              : undefined,
-          });
-
-          const msgId = rpc.send({ type: "get_messages" });
-          pendingCommands.set(msgId, { kind: "get_messages" });
-          return;
-        }
-
-        if (pending.kind === "get_available_models") {
-          const rawModels =
-            (data?.models as Array<Record<string, unknown>>) || [];
-          sendJson(ws, {
-            type: "available_models",
-            models: rawModels.map((m): ModelInfo => ({
-              provider: (m.provider as string) || "",
-              id: (m.modelId as string) || (m.id as string) || "",
-              label:
-                (m.name as string) ||
-                (m.label as string) ||
-                (m.modelId as string) ||
-                (m.id as string) ||
-                "",
-            })),
-          });
-          return;
-        }
-
-        if (pending.kind === "get_commands") {
-          const rawCommands =
-            (data?.commands as Array<Record<string, unknown>>) || [];
-          sendJson(ws, {
-            type: "available_commands",
-            commands: rawCommands
-              .filter((cmd) => typeof cmd.name === "string")
-              .map((cmd): SlashCommandSpec => ({
-                name: cmd.name as string,
-                description:
-                  typeof cmd.description === "string"
-                    ? cmd.description
-                    : undefined,
-                source:
-                  cmd.source === "extension" ||
-                  cmd.source === "prompt" ||
-                  cmd.source === "skill"
-                    ? cmd.source
-                    : "prompt",
-                location:
-                  cmd.location === "user" ||
-                  cmd.location === "project" ||
-                  cmd.location === "path"
-                    ? cmd.location
-                    : undefined,
-                path: typeof cmd.path === "string" ? cmd.path : undefined,
-              })),
-          });
-          return;
-        }
-
-        if (pending.kind === "bash") {
-          const output =
-            typeof data?.output === "string" ? data.output : "";
-          const exitCode =
-            typeof data?.exitCode === "number"
-              ? data.exitCode
-              : undefined;
-          const cancelled = data?.cancelled === true;
-          const truncated = data?.truncated === true;
-          const fullOutputPath =
-            typeof data?.fullOutputPath === "string"
-              ? data.fullOutputPath
-              : undefined;
-
-          sendJson(ws, {
-            type: "shell_result",
-            command: pending.command,
-            includeInContext: pending.includeInContext,
-            output,
-            exitCode,
-            cancelled,
-            truncated,
-            fullOutputPath,
-            timestamp: Date.now(),
-          });
-
-          if (pending.includeInContext) {
-            const refreshId = rpc.send({ type: "get_state" });
-            pendingCommands.set(refreshId, { kind: "get_state" });
-          }
+        const data = event.data as Record<string, unknown> | undefined;
+        const handled = handlePendingRpcResponse(
+          pending,
+          data,
+          ws,
+          rpc,
+          pendingCommands,
+        );
+        if (handled) {
           return;
         }
 
@@ -224,15 +117,178 @@ export async function handleSessionWebSocket(
     return;
   }
 
-  const stateId = rpc.send({ type: "get_state" });
-  pendingCommands.set(stateId, { kind: "get_state" });
+  const queuePendingCommand = (
+    command: Record<string, unknown>,
+    pending: PendingCommand,
+  ): void => {
+    const id = rpc.send(command);
+    pendingCommands.set(id, pending);
+  };
+
+  const forwardInputWithImages = (
+    type: "prompt" | "steer" | "follow_up",
+    text: string,
+    images: unknown,
+  ) => {
+    try {
+      const normalizedImages = normalizeClientImages(images);
+      rpc.send({ type, message: text, images: normalizedImages });
+    } catch (err) {
+      sendJson(ws, {
+        type: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Invalid image attachment payload",
+      });
+    }
+  };
+
+  const startLocalShellRun = (command: string): void => {
+    try {
+      const run = startLocalShell(command, sessions.cwd);
+      const localRun: LocalShellRun = {
+        command,
+        proc: run.proc,
+        promise: run.promise,
+        aborted: false,
+      };
+      runningLocalShell = localRun;
+
+      run.promise
+        .then((result) => {
+          sendJson(ws, {
+            type: "shell_result",
+            command,
+            includeInContext: false,
+            output: result.output,
+            exitCode: result.exitCode,
+            cancelled: result.cancelled || localRun.aborted,
+            truncated: result.truncated,
+            timestamp: Date.now(),
+          });
+        })
+        .catch((err: unknown) => {
+          const message =
+            err instanceof Error ? err.message : "Local shell failed";
+          sendJson(ws, { type: "error", message });
+        })
+        .finally(() => {
+          if (runningLocalShell?.proc === run.proc) {
+            runningLocalShell = null;
+          }
+        });
+    } catch (err) {
+      sendJson(ws, {
+        type: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Failed to start local shell command",
+      });
+    }
+  };
+
+  const stopRunningLocalShell = (): void => {
+    if (!runningLocalShell) return;
+    runningLocalShell.aborted = true;
+    runningLocalShell.proc.kill("SIGTERM");
+    runningLocalShell = null;
+  };
+
+  const handlers: ClientMessageHandlers = {
+    prompt: (msg) => {
+      forwardInputWithImages("prompt", msg.text, msg.images);
+    },
+    steer: (msg) => {
+      forwardInputWithImages("steer", msg.text, msg.images);
+    },
+    follow_up: (msg) => {
+      forwardInputWithImages("follow_up", msg.text, msg.images);
+    },
+    bash: (msg) => {
+      const command = msg.command.trim();
+      if (!command) {
+        sendJson(ws, { type: "error", message: "Shell command is empty" });
+        return;
+      }
+
+      const includeInContext = msg.includeInContext !== false;
+      if (includeInContext) {
+        queuePendingCommand(
+          { type: "bash", command },
+          { kind: "bash", command, includeInContext: true },
+        );
+        return;
+      }
+
+      if (runningLocalShell) {
+        sendJson(ws, {
+          type: "error",
+          message: "A local shell command is already running",
+        });
+        return;
+      }
+
+      startLocalShellRun(command);
+    },
+    abort: () => {
+      rpc.send({ type: "abort" });
+      stopRunningLocalShell();
+    },
+    get_state: () => {
+      queuePendingCommand({ type: "get_state" }, { kind: "get_state" });
+    },
+    set_model: (msg) => {
+      rpc.send({
+        type: "set_model",
+        provider: msg.provider,
+        modelId: msg.model,
+      });
+    },
+    set_thinking_level: (msg) => {
+      rpc.send({ type: "set_thinking_level", level: msg.level });
+    },
+    set_steering_mode: (msg) => {
+      rpc.send({ type: "set_steering_mode", mode: msg.mode });
+    },
+    set_follow_up_mode: (msg) => {
+      rpc.send({ type: "set_follow_up_mode", mode: msg.mode });
+    },
+    get_available_models: () => {
+      queuePendingCommand(
+        { type: "get_available_models" },
+        { kind: "get_available_models" },
+      );
+    },
+    get_commands: () => {
+      queuePendingCommand({ type: "get_commands" }, { kind: "get_commands" });
+    },
+    extension_ui_response: (msg) => {
+      const base = { type: "extension_ui_response", id: msg.id };
+      if ("value" in msg) {
+        rpc.send({ ...base, value: msg.value });
+      } else if ("confirmed" in msg) {
+        rpc.send({ ...base, confirmed: msg.confirmed });
+      } else {
+        rpc.send({ ...base, cancelled: true });
+      }
+    },
+  };
+
+  queuePendingCommand({ type: "get_state" }, { kind: "get_state" });
 
   ws.on("message", async (data) => {
-    let msg: ClientMessage;
+    let parsed: unknown;
     try {
-      msg = JSON.parse(data.toString());
+      parsed = JSON.parse(data.toString());
     } catch {
       sendJson(ws, { type: "error", message: "Invalid JSON" });
+      return;
+    }
+
+    if (!hasMessageType(parsed)) {
+      sendJson(ws, { type: "error", message: "Invalid message payload" });
       return;
     }
 
@@ -247,210 +303,27 @@ export async function handleSessionWebSocket(
       }
     }
 
-    switch (msg.type) {
-      case "prompt": {
-        try {
-          const images = normalizeClientImages(msg.images);
-          rpc.send({ type: "prompt", message: msg.text, images });
-        } catch (err) {
-          sendJson(ws, {
-            type: "error",
-            message:
-              err instanceof Error
-                ? err.message
-                : "Invalid image attachment payload",
-          });
-        }
-        break;
-      }
-
-      case "steer": {
-        try {
-          const images = normalizeClientImages(msg.images);
-          rpc.send({ type: "steer", message: msg.text, images });
-        } catch (err) {
-          sendJson(ws, {
-            type: "error",
-            message:
-              err instanceof Error
-                ? err.message
-                : "Invalid image attachment payload",
-          });
-        }
-        break;
-      }
-
-      case "follow_up": {
-        try {
-          const images = normalizeClientImages(msg.images);
-          rpc.send({ type: "follow_up", message: msg.text, images });
-        } catch (err) {
-          sendJson(ws, {
-            type: "error",
-            message:
-              err instanceof Error
-                ? err.message
-                : "Invalid image attachment payload",
-          });
-        }
-        break;
-      }
-
-      case "bash": {
-        const command = msg.command.trim();
-        if (!command) {
-          sendJson(ws, { type: "error", message: "Shell command is empty" });
-          break;
-        }
-
-        const includeInContext = msg.includeInContext !== false;
-
-        if (includeInContext) {
-          const id = rpc.send({ type: "bash", command });
-          pendingCommands.set(id, {
-            kind: "bash",
-            command,
-            includeInContext: true,
-          });
-          break;
-        }
-
-        if (runningLocalShell) {
-          sendJson(ws, {
-            type: "error",
-            message: "A local shell command is already running",
-          });
-          break;
-        }
-
-        try {
-          const run = startLocalShell(command, sessions.cwd);
-          const localRun: LocalShellRun = {
-            command,
-            proc: run.proc,
-            promise: run.promise,
-            aborted: false,
-          };
-          runningLocalShell = localRun;
-
-          run.promise
-            .then((result) => {
-              sendJson(ws, {
-                type: "shell_result",
-                command,
-                includeInContext: false,
-                output: result.output,
-                exitCode: result.exitCode,
-                cancelled: result.cancelled || localRun.aborted,
-                truncated: result.truncated,
-                timestamp: Date.now(),
-              });
-            })
-            .catch((err: unknown) => {
-              const message =
-                err instanceof Error ? err.message : "Local shell failed";
-              sendJson(ws, { type: "error", message });
-            })
-            .finally(() => {
-              if (runningLocalShell?.proc === run.proc) {
-                runningLocalShell = null;
-              }
-            });
-        } catch (err) {
-          sendJson(ws, {
-            type: "error",
-            message:
-              err instanceof Error
-                ? err.message
-                : "Failed to start local shell command",
-          });
-        }
-        break;
-      }
-
-      case "abort":
-        rpc.send({ type: "abort" });
-        if (runningLocalShell) {
-          runningLocalShell.aborted = true;
-          runningLocalShell.proc.kill("SIGTERM");
-        }
-        break;
-
-      case "get_state": {
-        const id = rpc.send({ type: "get_state" });
-        pendingCommands.set(id, { kind: "get_state" });
-        break;
-      }
-
-      case "set_model":
-        rpc.send({
-          type: "set_model",
-          provider: msg.provider,
-          modelId: msg.model,
-        });
-        break;
-
-      case "set_thinking_level":
-        rpc.send({ type: "set_thinking_level", level: msg.level });
-        break;
-
-      case "set_steering_mode":
-        rpc.send({ type: "set_steering_mode", mode: msg.mode });
-        break;
-
-      case "set_follow_up_mode":
-        rpc.send({ type: "set_follow_up_mode", mode: msg.mode });
-        break;
-
-      case "get_available_models": {
-        const id = rpc.send({ type: "get_available_models" });
-        pendingCommands.set(id, { kind: "get_available_models" });
-        break;
-      }
-
-      case "get_commands": {
-        const id = rpc.send({ type: "get_commands" });
-        pendingCommands.set(id, { kind: "get_commands" });
-        break;
-      }
-
-      case "extension_ui_response": {
-        const base = { type: "extension_ui_response", id: msg.id };
-        if ("value" in msg) {
-          rpc.send({ ...base, value: msg.value });
-        } else if ("confirmed" in msg) {
-          rpc.send({ ...base, confirmed: msg.confirmed });
-        } else {
-          rpc.send({ ...base, cancelled: true });
-        }
-        break;
-      }
-
-      default:
-        sendJson(ws, {
-          type: "error",
-          message: `Unknown message type: ${(msg as { type: string }).type}`,
-        });
+    if (!isClientMessageType(parsed.type)) {
+      sendJson(ws, {
+        type: "error",
+        message: `Unknown message type: ${parsed.type}`,
+      });
+      return;
     }
+
+    await dispatchClientMessage(parsed as ClientMessage, handlers);
   });
 
   ws.on("close", () => {
-    if (runningLocalShell) {
-      runningLocalShell.aborted = true;
-      runningLocalShell.proc.kill("SIGTERM");
-      runningLocalShell = null;
-    }
+    stopRunningLocalShell();
     sessions.detach(sessionId, listener);
   });
 
   ws.on("error", () => {
-    if (runningLocalShell) {
-      runningLocalShell.aborted = true;
-      runningLocalShell.proc.kill("SIGTERM");
-      runningLocalShell = null;
-    }
+    stopRunningLocalShell();
     sessions.detach(sessionId, listener);
   });
+
 }
 
 interface LocalShellResult {
@@ -458,6 +331,190 @@ interface LocalShellResult {
   exitCode?: number;
   cancelled: boolean;
   truncated: boolean;
+}
+
+function handlePendingRpcResponse(
+  pending: PendingCommand,
+  data: Record<string, unknown> | undefined,
+  ws: WebSocket,
+  rpc: RpcProcess,
+  pendingCommands: Map<string, PendingCommand>,
+): boolean {
+  switch (pending.kind) {
+    case "get_state": {
+      const model = data?.model as
+        | {
+            provider?: string;
+            modelId?: string;
+            id?: string;
+            contextWindow?: number;
+            maxTokens?: number;
+          }
+        | null
+        | undefined;
+
+      sendJson(ws, {
+        type: "state",
+        model: model
+          ? {
+              provider: model.provider || "",
+              id: model.modelId || model.id || "",
+              contextWindow:
+                typeof model.contextWindow === "number"
+                  ? model.contextWindow
+                  : undefined,
+              maxTokens:
+                typeof model.maxTokens === "number"
+                  ? model.maxTokens
+                  : undefined,
+            }
+          : null,
+        thinkingLevel: (data?.thinkingLevel as string) || "off",
+        steeringMode:
+          data?.steeringMode === "all" ||
+          data?.steeringMode === "one-at-a-time"
+            ? data.steeringMode
+            : undefined,
+        followUpMode:
+          data?.followUpMode === "all" ||
+          data?.followUpMode === "one-at-a-time"
+            ? data.followUpMode
+            : undefined,
+        sessionName:
+          typeof data?.sessionName === "string"
+            ? data.sessionName
+            : undefined,
+        isStreaming: (data?.isStreaming as boolean) || false,
+        autoCompactionEnabled: data?.autoCompactionEnabled === true,
+        messages: [],
+        messageCount:
+          typeof data?.messageCount === "number"
+            ? (data.messageCount as number)
+            : undefined,
+        pendingMessageCount:
+          typeof data?.pendingMessageCount === "number"
+            ? (data.pendingMessageCount as number)
+            : undefined,
+        systemPrompt:
+          typeof data?.systemPrompt === "string"
+            ? (data.systemPrompt as string)
+            : undefined,
+        tools: Array.isArray(data?.tools)
+          ? (data.tools as Array<Record<string, unknown>>).map((tool) => ({
+              name: (tool.name as string) || "tool",
+              description: (tool.description as string) || "",
+              parameters:
+                tool.parameters && typeof tool.parameters === "object"
+                  ? (tool.parameters as {
+                      properties?: Record<
+                        string,
+                        { type?: string; description?: string }
+                      >;
+                      required?: string[];
+                    })
+                  : undefined,
+            }))
+          : undefined,
+      });
+
+      const messageId = rpc.send({ type: "get_messages" });
+      pendingCommands.set(messageId, { kind: "get_messages" });
+      return true;
+    }
+
+    case "get_available_models": {
+      const rawModels = (data?.models as Array<Record<string, unknown>>) || [];
+      sendJson(ws, {
+        type: "available_models",
+        models: rawModels.map((m): ModelInfo => ({
+          provider: (m.provider as string) || "",
+          id: (m.modelId as string) || (m.id as string) || "",
+          label:
+            (m.name as string) ||
+            (m.label as string) ||
+            (m.modelId as string) ||
+            (m.id as string) ||
+            "",
+        })),
+      });
+      return true;
+    }
+
+    case "get_commands": {
+      const rawCommands =
+        (data?.commands as Array<Record<string, unknown>>) || [];
+      sendJson(ws, {
+        type: "available_commands",
+        commands: rawCommands
+          .filter((cmd) => typeof cmd.name === "string")
+          .map((cmd): SlashCommandSpec => ({
+            name: cmd.name as string,
+            description:
+              typeof cmd.description === "string" ? cmd.description : undefined,
+            source:
+              cmd.source === "extension" ||
+              cmd.source === "prompt" ||
+              cmd.source === "skill"
+                ? cmd.source
+                : "prompt",
+            location:
+              cmd.location === "user" ||
+              cmd.location === "project" ||
+              cmd.location === "path"
+                ? cmd.location
+                : undefined,
+            path: typeof cmd.path === "string" ? cmd.path : undefined,
+          })),
+      });
+      return true;
+    }
+
+    case "bash": {
+      const output = typeof data?.output === "string" ? data.output : "";
+      const exitCode =
+        typeof data?.exitCode === "number" ? data.exitCode : undefined;
+      const cancelled = data?.cancelled === true;
+      const truncated = data?.truncated === true;
+      const fullOutputPath =
+        typeof data?.fullOutputPath === "string"
+          ? data.fullOutputPath
+          : undefined;
+
+      sendJson(ws, {
+        type: "shell_result",
+        command: pending.command,
+        includeInContext: pending.includeInContext,
+        output,
+        exitCode,
+        cancelled,
+        truncated,
+        fullOutputPath,
+        timestamp: Date.now(),
+      });
+
+      if (pending.includeInContext) {
+        const refreshId = rpc.send({ type: "get_state" });
+        pendingCommands.set(refreshId, { kind: "get_state" });
+      }
+      return true;
+    }
+
+    case "get_messages":
+      return false;
+  }
+}
+
+function hasMessageType(value: unknown): value is { type: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof (value as { type?: unknown }).type === "string"
+  );
+}
+
+function isClientMessageType(type: string): type is ClientMessage["type"] {
+  return CLIENT_MESSAGE_TYPES.has(type as ClientMessage["type"]);
 }
 
 function normalizeClientImages(images: unknown): ImageContent[] | undefined {

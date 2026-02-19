@@ -201,30 +201,6 @@ export class MessageList extends LitElement {
     return `${this.targetPrefix}${renderIndex}`;
   }
 
-  private renderCopyButton(targetId: string): TemplateResult {
-    return html`
-      <button
-        class="copy-link-btn"
-        title="Copy link to this message"
-        @click=${(e: Event) => {
-          e.stopPropagation();
-          this.dispatchEvent(
-            new CustomEvent("copy-link", {
-              detail: { targetId },
-              bubbles: true,
-              composed: true,
-            }),
-          );
-          const button = e.currentTarget as HTMLButtonElement;
-          button.classList.add("copied");
-          setTimeout(() => button.classList.remove("copied"), 1400);
-        }}
-      >
-        🔗
-      </button>
-    `;
-  }
-
   private renderUserMessage(
     message: AgentMessageData,
     renderIndex: number,
@@ -241,7 +217,6 @@ export class MessageList extends LitElement {
 
     return html`
       <div class="user-message ml-user" id=${targetId}>
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
 
         ${text
@@ -278,7 +253,6 @@ export class MessageList extends LitElement {
 
     return html`
       <div class="assistant-message ml-assistant" id=${targetId}>
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
 
         ${blocks.map((block) => {
@@ -315,6 +289,7 @@ export class MessageList extends LitElement {
     renderIndex: number,
   ): TemplateResult {
     const status = message.isError ? "error" : "success";
+    const summaryStatus = message.isError ? "error" : "";
     const ts = formatTimestamp(message.timestamp);
     const targetId = this.targetId(message, renderIndex);
 
@@ -327,14 +302,15 @@ export class MessageList extends LitElement {
         id=${targetId}
         ?open=${this.expandToolOutputs}
       >
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
         <summary class="tool-call-summary">
           <span class="tool-call-summary-main">
             <span class="tool-name">${message.toolName || "tool"}</span>
             <span class="tool-call-summary-text">${summary}</span>
           </span>
-          <span class="tool-call-summary-status">${status}</span>
+          ${summaryStatus
+            ? html`<span class="tool-call-summary-status">${summaryStatus}</span>`
+            : nothing}
         </summary>
 
         <div class="tool-call-body">
@@ -377,16 +353,17 @@ export class MessageList extends LitElement {
         id=${targetId}
         ?open=${this.expandToolOutputs}
       >
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
         <summary class="tool-call-summary">
           <span class="tool-call-summary-main">
             <span class="tool-name">$ ${message.command || "(command)"}</span>
             <span class="tool-call-summary-text">${summary}</span>
           </span>
-          <span class="tool-call-summary-status">
-            ${metaBits.length > 0 ? metaBits.join(" · ") : status}
-          </span>
+          ${metaBits.length > 0 || status === "error"
+            ? html`<span class="tool-call-summary-status">
+                ${metaBits.length > 0 ? metaBits.join(" · ") : "error"}
+              </span>`
+            : nothing}
         </summary>
         <div class="tool-call-body">
           ${unsafeHTML(
@@ -427,9 +404,8 @@ export class MessageList extends LitElement {
         class="custom-message hook-message ${notifyType ? `note-${notifyType}` : ""}"
         id=${targetId}
       >
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
-        <div class="custom-message-label">[${customType}]</div>
+        <div class="custom-message-label">${customType}</div>
         ${text
           ? html`<div class="markdown-content">${unsafeHTML(safeMarkedParse(text))}</div>`
           : html`<div class="custom-message-empty">(no content)</div>`}
@@ -454,10 +430,9 @@ export class MessageList extends LitElement {
         id=${targetId}
         ?open=${this.expandToolOutputs}
       >
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
         <summary class="custom-summary-toggle">
-          <span class="custom-message-label">[branch]</span>
+          <span class="custom-message-label">branch</span>
           <span class="custom-message-summary">Branch summary</span>
         </summary>
         <div class="custom-message-body markdown-content">
@@ -488,10 +463,9 @@ export class MessageList extends LitElement {
         id=${targetId}
         ?open=${this.expandToolOutputs}
       >
-        ${this.renderCopyButton(targetId)}
         ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
         <summary class="custom-summary-toggle">
-          <span class="custom-message-label">[compaction]</span>
+          <span class="custom-message-label">compaction</span>
           <span class="custom-message-summary"
             >Compacted from ${tokensBefore} tokens</span
           >
@@ -536,13 +510,7 @@ export class MessageList extends LitElement {
         ? "error"
         : "success"
       : "pending";
-    const statusLabel = result
-      ? result.isError
-        ? "error"
-        : "done"
-      : pending
-        ? "running"
-        : "no result";
+    const statusLabel = result?.isError ? "error" : "";
 
     const invalidArg = '<span class="tool-error">[invalid arg]</span>';
 
@@ -734,7 +702,9 @@ export class MessageList extends LitElement {
           <span class="tool-name">${escapeHtml(name)}</span>
           <span class="tool-call-summary-text">${summary || "(no summary)"}</span>
         </span>
-        <span class="tool-call-summary-status">${statusLabel}</span>
+        ${statusLabel
+          ? `<span class="tool-call-summary-status">${escapeHtml(statusLabel)}</span>`
+          : ""}
       </summary>
       <div class="tool-call-body">${body}</div>
     </details>`;

@@ -1,12 +1,5 @@
 {
-  "generatedAt": "2026-02-19T09:59:34.661Z",
+  "generatedAt": "2026-02-19T10:20:25.776Z",
   "note": "Baseline for known E2E internal-mutation guardrail hits. New hits fail check:e2e:guardrails.",
-  "allowedFingerprints": [
-    "tests/e2e/app.spec.ts|call-view-handle-agent-event|view.handleAgentEvent?.({",
-    "tests/e2e/app.spec.ts|call-view-request-update|view.requestUpdate();",
-    "tests/e2e/app.spec.ts|mutate-view-state|view.commands = [",
-    "tests/e2e/app.spec.ts|mutate-view-state|view.messages = [",
-    "tests/e2e/app.spec.ts|mutate-view-state|view.systemPrompt = \"You are a test prompt.\\nKeep output concise.\";",
-    "tests/e2e/app.spec.ts|mutate-view-state|view.wsSend = (msg: unknown) => {"
-  ]
+  "allowedFingerprints": []
 }

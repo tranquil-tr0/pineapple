@@ -25,6 +25,7 @@ interface ParsedSessionFile {
   name: string | undefined;
   lastActivityAt: string;
   messageCount: number;
+  model: string | undefined;
 }
 
 interface CachedParsedSessionFile {
@@ -36,6 +37,8 @@ interface CachedParsedSessionFile {
 export class SessionManager {
   private active = new Map<string, ActiveSession>();
   private fileCache = new Map<string, CachedParsedSessionFile>();
+  private sessionFileById = new Map<string, string>();
+  private sessionIdByFile = new Map<string, string>();
   private recentClientActivityAt = new Map<string, number>();
 
   constructor(private config: ServerConfig) {}
@@ -68,6 +71,7 @@ export class SessionManager {
             createdAt: parsed.createdAt,
             lastActivityAt: parsed.lastActivityAt,
             messageCount: parsed.messageCount,
+            model: parsed.model,
           },
           now,
         ),
@@ -195,6 +199,11 @@ export class SessionManager {
       try {
         await rm(filePath, { force: true });
         this.fileCache.delete(sessionFile);
+        const mappedId = this.sessionIdByFile.get(sessionFile);
+        this.sessionIdByFile.delete(sessionFile);
+        if (mappedId && this.sessionFileById.get(mappedId) === sessionFile) {
+          this.sessionFileById.delete(mappedId);
+        }
       } catch {
         return false;
       }
@@ -327,9 +336,26 @@ export class SessionManager {
       return [];
     }
 
+    const jsonlFiles = entries.filter((file) => file.endsWith(".jsonl"));
+    const existingFiles = new Set(jsonlFiles);
+
+    for (const file of Array.from(this.fileCache.keys())) {
+      if (!existingFiles.has(file)) {
+        this.fileCache.delete(file);
+      }
+    }
+
+    for (const [file, id] of Array.from(this.sessionIdByFile.entries())) {
+      if (!existingFiles.has(file)) {
+        this.sessionIdByFile.delete(file);
+        if (this.sessionFileById.get(id) === file) {
+          this.sessionFileById.delete(id);
+        }
+      }
+    }
+
     const results: ParsedSessionFile[] = [];
-    for (const file of entries) {
-      if (!file.endsWith(".jsonl")) continue;
+    for (const file of jsonlFiles) {
       const parsed = await this.parseSessionFile(file);
       if (parsed) results.push(parsed);
     }
@@ -381,6 +407,7 @@ export class SessionManager {
     let lastTimestamp = header.timestamp || new Date().toISOString();
     let messageCount = 0;
     let firstUserMessage: string | undefined;
+    let model: string | undefined;
 
     for (let i = 1; i < lines.length; i++) {
       try {
@@ -388,6 +415,10 @@ export class SessionManager {
           type?: string;
           timestamp?: string;
           name?: string;
+          model?: {
+            id: string;
+            provider: string;
+          };
           message?: {
             role?: string;
             content?: string | Array<{ type: string; text?: string }>;
@@ -395,6 +426,10 @@ export class SessionManager {
         };
 
         if (parsedLine.timestamp) lastTimestamp = parsedLine.timestamp;
+
+        if (parsedLine.type === "state" && parsedLine.model) {
+          model = parsedLine.model.id;
+        }
 
         if (parsedLine.type === "session_info" && parsedLine.name) {
           name = parsedLine.name;
@@ -430,7 +465,15 @@ export class SessionManager {
       name,
       lastActivityAt: lastTimestamp,
       messageCount,
+      model,
     };
+
+    const previousIdForFile = this.sessionIdByFile.get(file);
+    if (previousIdForFile && previousIdForFile !== parsed.id) {
+      this.sessionFileById.delete(previousIdForFile);
+    }
+    this.sessionIdByFile.set(file, parsed.id);
+    this.sessionFileById.set(parsed.id, file);
 
     this.fileCache.set(file, {
       parsed,
@@ -442,6 +485,19 @@ export class SessionManager {
   }
 
   private async findSessionFile(sessionId: string): Promise<string | undefined> {
+    const cachedFile = this.sessionFileById.get(sessionId);
+    if (cachedFile) {
+      const parsed = await this.parseSessionFile(cachedFile);
+      if (parsed?.id === sessionId) {
+        return cachedFile;
+      }
+
+      this.sessionFileById.delete(sessionId);
+      if (this.sessionIdByFile.get(cachedFile) === sessionId) {
+        this.sessionIdByFile.delete(cachedFile);
+      }
+    }
+
     const files = await this.scanSessionFiles();
     return files.find((f) => f.id === sessionId)?.file;
   }
