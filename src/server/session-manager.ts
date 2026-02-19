@@ -697,7 +697,7 @@ export class SessionManager {
 
       if (entries.length === 0) return [];
 
-      let leaf = entries[entries.length - 1];
+      const leaf = entries[entries.length - 1];
       const path: any[] = [];
       let current = leaf;
       while (current) {

@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile, utimes } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { homedir } from "os";
-import { decodeCwd, listProjects, type ProjectInfo } from "../../src/server/project-registry.js";
+import { decodeCwd, listProjects } from "../../src/server/project-registry.js";
 import { encodeCwd } from "../../src/server/config.js";
 
 describe("decodeCwd", () => {

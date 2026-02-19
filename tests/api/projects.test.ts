@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createApp, type AppInstance } from "../../src/server/app.js";
 import type { ServerConfig } from "../../src/server/config.js";
 import { encodeCwd } from "../../src/server/config.js";
-import { mkdtemp, rm, writeFile, mkdir } from "fs/promises";
+import { mkdtemp, rm, writeFile, mkdir, utimes } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import type { AddressInfo } from "net";
@@ -29,12 +29,20 @@ describe("GET /api/projects", () => {
     await mkdir(bucket2, { recursive: true });
 
     const now = new Date();
-    const ts1 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString();
-    const ts2 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    const ts1 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const ts2 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
 
-    await writeFile(join(bucket1, "s1.jsonl"), makeSessionJsonl("s1", ts1));
-    await writeFile(join(bucket2, "s2.jsonl"), makeSessionJsonl("s2", ts2));
-    await writeFile(join(bucket2, "s3.jsonl"), makeSessionJsonl("s3", ts2));
+    const f1 = join(bucket1, "s1.jsonl");
+    await writeFile(f1, makeSessionJsonl("s1", ts1.toISOString()));
+    await utimes(f1, ts1, ts1);
+
+    const f2 = join(bucket2, "s2.jsonl");
+    await writeFile(f2, makeSessionJsonl("s2", ts2.toISOString()));
+    await utimes(f2, ts2, ts2);
+
+    const f3 = join(bucket2, "s3.jsonl");
+    await writeFile(f3, makeSessionJsonl("s3", ts2.toISOString()));
+    await utimes(f3, ts2, ts2);
 
     const config: ServerConfig = {
       port: 0,
