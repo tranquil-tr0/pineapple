@@ -747,6 +747,28 @@ export class SessionManager {
             timestamp: new Date(entry.timestamp).getTime(),
             id: entry.id,
           } as AgentMessageData);
+        } else if (entry.type === "model_change") {
+          messages.push({
+            role: "modelChange",
+            provider: entry.provider,
+            modelId: entry.modelId,
+            timestamp: new Date(entry.timestamp).getTime(),
+            id: entry.id,
+          } as AgentMessageData);
+        } else if (entry.type === "thinking_level_change") {
+          messages.push({
+            role: "thinkingLevelChange",
+            thinkingLevel: entry.thinkingLevel,
+            timestamp: new Date(entry.timestamp).getTime(),
+            id: entry.id,
+          } as AgentMessageData);
+        } else if (entry.type === "session_info" && entry.name) {
+          messages.push({
+            role: "sessionInfo",
+            name: entry.name,
+            timestamp: new Date(entry.timestamp).getTime(),
+            id: entry.id,
+          } as AgentMessageData);
         }
       }
       return messages;

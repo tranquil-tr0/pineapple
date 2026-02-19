@@ -79,6 +79,22 @@ interface CompactionSummaryMessage extends AgentMessageData {
   tokensBefore?: number;
 }
 
+interface ModelChangeMessage extends AgentMessageData {
+  role: "modelChange";
+  provider?: string;
+  modelId?: string;
+}
+
+interface ThinkingLevelChangeMessage extends AgentMessageData {
+  role: "thinkingLevelChange";
+  thinkingLevel?: string;
+}
+
+interface SessionInfoMessage extends AgentMessageData {
+  role: "sessionInfo";
+  name?: string;
+}
+
 @customElement("message-list")
 export class MessageList extends LitElement {
   override createRenderRoot() {
@@ -185,6 +201,21 @@ export class MessageList extends LitElement {
     } else if (message.role === "compactionSummary") {
       msgHtml = this.renderCompactionSummary(
         message as CompactionSummaryMessage,
+        renderIndex,
+      );
+    } else if (message.role === "modelChange") {
+      msgHtml = this.renderModelChange(
+        message as ModelChangeMessage,
+        renderIndex,
+      );
+    } else if (message.role === "thinkingLevelChange") {
+      msgHtml = this.renderThinkingLevelChange(
+        message as ThinkingLevelChangeMessage,
+        renderIndex,
+      );
+    } else if (message.role === "sessionInfo") {
+      msgHtml = this.renderSessionInfo(
+        message as SessionInfoMessage,
         renderIndex,
       );
     }
@@ -481,6 +512,58 @@ export class MessageList extends LitElement {
           ${unsafeHTML(safeMarkedParse(summary))}
         </div>
       </details>
+    `;
+  }
+
+  private renderModelChange(
+    message: ModelChangeMessage,
+    renderIndex: number,
+  ): TemplateResult {
+    const targetId = this.targetId(message, renderIndex);
+    const provider = message.provider || "unknown";
+    const modelId = message.modelId || "unknown";
+
+    return html`
+      <div class="model-change-message hook-message note-info" id=${targetId}>
+        <span class="custom-message-label">model</span>
+        <span class="model-change-text"
+          >Model set to <strong>${modelId}</strong> (${provider})</span
+        >
+      </div>
+    `;
+  }
+
+  private renderThinkingLevelChange(
+    message: ThinkingLevelChangeMessage,
+    renderIndex: number,
+  ): TemplateResult {
+    const targetId = this.targetId(message, renderIndex);
+    const level = message.thinkingLevel || "off";
+
+    return html`
+      <div class="thinking-change-message hook-message note-info" id=${targetId}>
+        <span class="custom-message-label">thinking</span>
+        <span class="thinking-change-text"
+          >Thinking level set to <strong>${level}</strong></span
+        >
+      </div>
+    `;
+  }
+
+  private renderSessionInfo(
+    message: SessionInfoMessage,
+    renderIndex: number,
+  ): TemplateResult {
+    const targetId = this.targetId(message, renderIndex);
+    const name = message.name || "unnamed";
+
+    return html`
+      <div class="session-info-message hook-message note-info" id=${targetId}>
+        <span class="custom-message-label">session</span>
+        <span class="session-info-text"
+          >Session renamed to <strong>${name}</strong></span
+        >
+      </div>
     `;
   }
 
