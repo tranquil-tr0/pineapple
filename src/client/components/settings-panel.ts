@@ -1,12 +1,15 @@
 import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { QueueDeliveryMode } from "@shared/types.js";
+import { archiveSessionName } from "@shared/session-archive.js";
 
 const QUEUE_MODES: QueueDeliveryMode[] = ["one-at-a-time", "all"];
 
 @customElement("settings-panel")
 export class SettingsPanel extends LitElement {
   @property({ type: Boolean }) open = false;
+  @property({ type: String }) sessionId = "";
+  @property({ type: String }) sessionName = "";
   @property({ type: String }) currentSteeringMode: QueueDeliveryMode =
     "one-at-a-time";
   @property({ type: String }) currentFollowUpMode: QueueDeliveryMode =
@@ -186,6 +189,32 @@ export class SettingsPanel extends LitElement {
       border-color: var(--accent);
       background: var(--surface-alt);
     }
+
+    .archive-section {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .archive-btn {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--error);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--error);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      font-family: inherit;
+      min-height: 44px;
+    }
+
+    .archive-btn:hover {
+      background: var(--error);
+      color: #111;
+    }
   `;
 
   render() {
@@ -286,6 +315,16 @@ export class SettingsPanel extends LitElement {
               )}
             </div>
           </div>
+
+          ${this.sessionId
+            ? html`
+                <div class="archive-section">
+                  <button class="archive-btn" @click=${this.onArchive}>
+                    Archive Session
+                  </button>
+                </div>
+              `
+            : nothing}
         </div>
       </div>
     `;
@@ -331,6 +370,27 @@ export class SettingsPanel extends LitElement {
       .__applyTheme as ((t: string | null) => void) | undefined;
     if (applyTheme) {
       applyTheme(theme === "auto" ? null : theme);
+    }
+  }
+
+  private async onArchive() {
+    if (!this.sessionId) return;
+
+    const archivedName = archiveSessionName(this.sessionName || "Session");
+
+    try {
+      const res = await fetch(`/api/sessions/${this.sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: archivedName }),
+      });
+
+      if (res.ok) {
+        this.dispatchEvent(new CustomEvent("archive"));
+        this.close();
+      }
+    } catch {
+      // Silently fail
     }
   }
 }

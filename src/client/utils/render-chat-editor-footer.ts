@@ -129,19 +129,21 @@ function renderModelPicker(
       class="cv-status-select cv-status-select-model"
       aria-label="Model"
       title="Model"
-      .value=${selected}
       @change=${onModelChange}
       ?disabled=${models.length === 0}
     >
       ${showPlaceholder
-        ? html`<option value="" selected></option>`
+        ? html`<option value="" ?selected=${true}></option>`
         : nothing}
       ${!hasSelected && selected
-        ? html`<option value=${selected}>${currentProvider ? `(${currentProvider}) ` : ""}${currentModel}</option>`
+        ? html`<option value=${selected} ?selected=${true}>${currentProvider ? `(${currentProvider}) ` : ""}${currentModel}</option>`
         : nothing}
       ${models.map(
         (model) => html`
-          <option value="${model.provider}/${model.id}">
+          <option
+            value="${model.provider}/${model.id}"
+            ?selected=${hasSelected && model.provider === currentProvider && model.id === currentModel}
+          >
             ${modelOptionLabel(model)}
           </option>
         `,
@@ -162,15 +164,16 @@ function renderThinkingPicker(
       class="cv-status-select cv-status-select-thinking"
       aria-label="Thinking level"
       title="Thinking level"
-      .value=${currentThinkingLevel}
       @change=${onThinkingChange}
     >
       ${!hasValue
-        ? html`<option value="" selected></option>`
+        ? html`<option value="" ?selected=${true}></option>`
         : nothing}
       ${thinkingLevels.map(
         (level) => html`
-          <option value=${level}>${level}</option>
+          <option value=${level} ?selected=${level === currentThinkingLevel}>
+            ${level}
+          </option>
         `,
       )}
     </select>

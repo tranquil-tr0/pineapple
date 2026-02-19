@@ -726,6 +726,8 @@ export class ChatView extends LitElement {
 
       <settings-panel
         .open=${this.settingsOpen}
+        .sessionId=${this.sessionId}
+        .sessionName=${this.sessionName}
         .currentSteeringMode=${rs?.currentSteeringMode || "one-at-a-time"}
         .currentFollowUpMode=${rs?.currentFollowUpMode || "one-at-a-time"}
         .showThinking=${this.showThinking}
@@ -737,7 +739,12 @@ export class ChatView extends LitElement {
           (this.showThinking = e.detail)}
         @expand-tool-outputs-change=${(e: CustomEvent<boolean>) =>
           (this.expandToolOutputs = e.detail)}
+        @archive=${this.onArchive}
       ></settings-panel>
     `;
+  }
+
+  private onArchive() {
+    window.location.hash = "#/";
   }
 }
