@@ -33,11 +33,13 @@ export interface SessionMessageStats {
 export interface SessionMeta {
   id: string;
   name: string;
-  createdAt: string; // ISO 8601
-  lastActivityAt: string; // ISO 8601
+  createdAt: string;
+  lastActivityAt: string;
   messageStats: SessionMessageStats;
   model?: string;
   activity: SessionActivity;
+  cwd?: string;
+  cwdRaw?: string;
 }
 
 // ---- WebSocket: client → server ----

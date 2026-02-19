@@ -3,8 +3,7 @@ import { homedir } from "os";
 
 export interface ServerConfig {
   port: number;
-  sessionDir: string;
-  cwd: string;
+  sessionsRoot: string;
   idleTimeoutMs: number;
   piCommand: string;
 }
@@ -16,12 +15,10 @@ export function encodeCwd(cwd: string): string {
 export function loadConfig(argv: string[]): ServerConfig {
   const args = parseArgs(argv);
 
-  const cwd = process.cwd();
-
-  const sessionDir =
-    args["session-dir"] ||
-    process.env.PI_SESSION_DIR ||
-    join(homedir(), ".pi", "agent", "sessions", encodeCwd(cwd));
+  const sessionsRoot =
+    args["sessions-root"] ||
+    process.env.PI_SESSIONS_ROOT ||
+    join(homedir(), ".pi", "agent", "sessions");
 
   const port = parseInt(
     args["port"] || process.env.PI_PORT || "3000",
@@ -36,8 +33,7 @@ export function loadConfig(argv: string[]): ServerConfig {
 
   return {
     port,
-    sessionDir,
-    cwd,
+    sessionsRoot,
     idleTimeoutMs,
     piCommand,
   };
