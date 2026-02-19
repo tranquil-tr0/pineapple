@@ -532,6 +532,7 @@ export class ChatView extends LitElement {
 
   private computeUsageTotals(messages: AgentMessageData[]): UsageTotals {
     const totals: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, activeContextTokens: null, totalCost: 0 };
+    let lastAssistantUsage: any = null;
     for (const msg of messages) {
       if (msg.role !== "assistant" || !msg.usage) continue;
       const u = msg.usage as any;
@@ -539,8 +540,20 @@ export class ChatView extends LitElement {
       totals.output += u.output || u.outputTokens || u.completionTokens || 0;
       totals.cacheRead += u.cacheRead || u.cachedRead || 0;
       totals.cacheWrite += u.cacheWrite || u.cachedWrite || 0;
-      if (u.activeContextTokens) totals.activeContextTokens = u.activeContextTokens;
+      // Track last assistant usage for context tokens calculation
+      // Skip aborted/error messages as they don't have valid usage data
+      const stopReason = (msg as any).stopReason;
+      if (stopReason !== "aborted" && stopReason !== "error") {
+        lastAssistantUsage = u;
+      }
       if (u.cost?.total) totals.totalCost += u.cost.total;
+    }
+    // Calculate active context tokens from the last assistant message's usage
+    // This matches pi's calculateContextTokens function
+    if (lastAssistantUsage) {
+      totals.activeContextTokens = lastAssistantUsage.totalTokens ||
+        (lastAssistantUsage.input || 0) + (lastAssistantUsage.output || 0) +
+        (lastAssistantUsage.cacheRead || 0) + (lastAssistantUsage.cacheWrite || 0);
     }
     return totals;
   }
