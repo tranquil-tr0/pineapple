@@ -673,7 +673,16 @@ export class ChatView extends LitElement {
               .expandToolOutputs=${this.expandToolOutputs}
             ></message-list>
 
-            ${isAgentWorking ? html`<div class="cv-agent-working"><div class="cv-agent-spinner" title="Agent working"></div></div>` : nothing}
+            ${isAgentWorking
+              ? html`
+                  <div class="cv-agent-working">
+                    <div class="cv-agent-spinner" title="Agent working"></div>
+                    <button class="cv-agent-stop-btn" @click=${this.onStop} title="Stop">
+                      &#9632;
+                    </button>
+                  </div>
+                `
+              : nothing}
             ${rs?.wasInterrupted && !isStreaming ? html`<div class="cv-interrupted">Interrupted</div>` : nothing}
           </div>
 
@@ -687,7 +696,6 @@ export class ChatView extends LitElement {
             @send=${this.onSend}
             @steer=${this.onSteer}
             @follow-up=${this.onFollowUp}
-            @stop=${this.onStop}
           ></chat-input>
 
           ${renderChatEditorFooter({

@@ -231,16 +231,6 @@ export class ChatInput extends LitElement {
       cursor: default;
     }
 
-    .send-btn.stop {
-      border-color: var(--error);
-      color: var(--error);
-    }
-
-    .send-btn.stop:hover {
-      background: var(--error);
-      color: #111;
-    }
-
     .mobile-actions {
       display: none;
     }
@@ -459,24 +449,18 @@ export class ChatInput extends LitElement {
             📎
           </button>
 
-          ${this.isStreaming
+          ${this.text.trim() || this.pastedImages.length > 0
             ? html`
-                <button class="send-btn stop" @click=${this.onStop} title="Stop">
-                  &#9632;
+                <button
+                  class="send-btn send"
+                  @click=${this.onSend}
+                  ?disabled=${this.disabled || this.processingPaste}
+                  title="Send"
+                >
+                  &#9654;
                 </button>
               `
-            : this.text.trim() || this.pastedImages.length > 0
-              ? html`
-                  <button
-                    class="send-btn send"
-                    @click=${this.onSend}
-                    ?disabled=${this.disabled || this.processingPaste}
-                    title="Send"
-                  >
-                    &#9654;
-                  </button>
-                `
-              : nothing}
+            : nothing}
         </div>
       </div>
     `;
@@ -571,12 +555,6 @@ export class ChatInput extends LitElement {
       }),
     );
     this.clear();
-  }
-
-  private onStop() {
-    this.dispatchEvent(
-      new CustomEvent("stop", { bubbles: true, composed: true }),
-    );
   }
 
   private async onPaste(e: ClipboardEvent) {

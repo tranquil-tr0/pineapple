@@ -1446,9 +1446,10 @@ chat-view {
 
 .cv-agent-working {
   margin-top: 12px;
-  padding-left: 14px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .cv-agent-spinner {
@@ -1458,6 +1459,27 @@ chat-view {
   border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: cv-spin 1s linear infinite;
+}
+
+.cv-agent-stop-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--error);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+
+.cv-agent-stop-btn:hover {
+  background: var(--error);
+  color: #111;
 }
 
 @keyframes cv-spin {
