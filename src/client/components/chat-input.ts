@@ -24,18 +24,25 @@ export class ChatInput extends LitElement {
   @state() private processingPaste = false;
   @state() private isDragOver = false;
 
+  private dragDepth = 0;
+
   @query("textarea") private textarea!: HTMLTextAreaElement;
+  @query(".file-input") private fileInput?: HTMLInputElement;
 
   static styles = css`
     :host {
       display: block;
       flex-shrink: 0;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--borderSubtle, var(--borderMuted, #505050));
+      border-bottom: 1px solid var(--borderSubtle, var(--borderMuted, #505050));
       background: var(--surface);
-      padding: 10px 14px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom));
       font-family: var(--font, ui-monospace, monospace);
       position: relative;
+    }
+
+    :host(:focus-within) {
+      border-top-color: var(--purpose, var(--borderAccent, #00d7ff));
+      border-bottom-color: var(--purpose, var(--borderAccent, #00d7ff));
     }
 
     .input-row {
@@ -43,9 +50,24 @@ export class ChatInput extends LitElement {
       align-items: flex-end;
       gap: 8px;
       width: 100%;
-      max-width: var(--max-width, 980px);
-      margin: 0 auto;
+      padding: 10px 14px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
       position: relative;
+    }
+
+    .drop-overlay {
+      position: absolute;
+      inset: 0;
+      border: 1px dashed var(--accent);
+      border-radius: 8px;
+      background: rgba(0, 215, 255, 0.08);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 30;
     }
 
     .input-wrap {
@@ -105,14 +127,14 @@ export class ChatInput extends LitElement {
 
     textarea {
       width: 100%;
-      min-height: 40px;
+      min-height: 36px;
       max-height: 180px;
       resize: none;
       overflow-y: auto;
-      border: 1px solid var(--borderMuted, #505050);
-      border-radius: 6px;
-      padding: 10px 12px;
-      background: var(--bg);
+      border: none;
+      border-radius: 0;
+      padding: 8px 0;
+      background: transparent;
       color: var(--text-primary);
       font-family: inherit;
       font-size: 14px;
@@ -125,13 +147,10 @@ export class ChatInput extends LitElement {
     }
 
     textarea:focus {
-      border-color: var(--borderAccent, #00d7ff);
-      box-shadow: 0 0 0 1px rgba(0, 215, 255, 0.25);
+      box-shadow: none;
     }
 
     textarea.drag-over {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(0, 215, 255, 0.25);
       background: rgba(0, 215, 255, 0.06);
     }
 
@@ -140,6 +159,7 @@ export class ChatInput extends LitElement {
       cursor: default;
     }
 
+    .attach-btn,
     .send-btn {
       width: 40px;
       height: 40px;
@@ -154,6 +174,20 @@ export class ChatInput extends LitElement {
       font-size: 13px;
       line-height: 1;
       flex-shrink: 0;
+    }
+
+    .attach-btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .attach-btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .file-input {
+      display: none;
     }
 
     .send-btn.send {
@@ -181,14 +215,8 @@ export class ChatInput extends LitElement {
       color: #111;
     }
 
-    .input-help {
-      max-width: var(--max-width, 980px);
-      margin: 6px auto 0;
-      color: var(--text-secondary);
-      font-size: 11px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+    .mobile-actions {
+      display: none;
     }
 
     .commands-popover {
@@ -260,6 +288,30 @@ export class ChatInput extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    @media (max-width: 980px) {
+      .input-wrap {
+        padding-right: 44px;
+      }
+
+      .mobile-actions {
+        position: absolute;
+        right: 14px;
+        bottom: max(10px, env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        z-index: 10;
+      }
+
+      .attach-btn,
+      .send-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+        background: var(--surface-alt);
+      }
+    }
   `;
 
   render() {
@@ -267,7 +319,26 @@ export class ChatInput extends LitElement {
     const showSuggestions = suggestions.length > 0;
 
     return html`
-      <div class="input-row">
+      <div
+        class="input-row"
+        @dragenter=${this.onDropZoneDragEnter}
+        @dragover=${this.onDropZoneDragOver}
+        @dragleave=${this.onDropZoneDragLeave}
+        @drop=${this.onDropZoneDrop}
+      >
+        ${this.isDragOver
+          ? html`<div class="drop-overlay">Drop images to attach</div>`
+          : nothing}
+
+        <input
+          class="file-input"
+          type="file"
+          accept="image/*"
+          multiple
+          @change=${this.onFileInputChange}
+          ?disabled=${this.disabled}
+        />
+
         <div class="input-wrap">
           ${showSuggestions
             ? html`
@@ -327,7 +398,6 @@ export class ChatInput extends LitElement {
             : nothing}
 
           <textarea
-            class=${this.isDragOver ? "drag-over" : ""}
             placeholder=${this.disabled
               ? "No model available"
               : "Type a message… (!cmd, !!cmd, /command)"}
@@ -337,51 +407,44 @@ export class ChatInput extends LitElement {
             @input=${this.onInput}
             @keydown=${this.onKeydown}
             @paste=${this.onPaste}
-            @dragover=${this.onDragOver}
-            @dragleave=${this.onDragLeave}
-            @drop=${this.onDrop}
           ></textarea>
         </div>
 
-        ${this.isStreaming
-          ? html`
-              <button class="send-btn stop" @click=${this.onStop} title="Stop">
-                &#9632;
-              </button>
-            `
-          : html`
-              <button
-                class="send-btn send"
-                @click=${this.onSend}
-                ?disabled=${
-                  this.disabled ||
-                  this.processingPaste ||
-                  (!this.text.trim() && this.pastedImages.length === 0)
-                }
-                title="Send"
-              >
-                &#9654;
-              </button>
-            `}
-      </div>
+        <div class="mobile-actions">
+          <button
+            class="attach-btn"
+            @click=${this.onAttachClick}
+            ?disabled=${
+              this.disabled ||
+              this.processingPaste ||
+              this.pastedImages.length >= MAX_PASTED_IMAGES
+            }
+            title="Attach image"
+          >
+            📎
+          </button>
 
-      <div class="input-help">
-        <span>Enter: send</span>
-        <span>Shift+Enter: newline</span>
-        ${this.isStreaming
-          ? html`<span>Alt+Enter: follow-up</span>`
-          : nothing}
-        <span>Cmd/Ctrl+V: paste image</span>
-        <span>Drag & drop: image attach</span>
-        <span>!cmd: shell + context</span>
-        <span>!!cmd: shell only</span>
-        <span
-          >/: commands${this.commandsLoading
-            ? " (loading…)"
-            : this.commands.length
-              ? ` (${this.commands.length})`
-              : ""}</span
-        >
+          ${this.isStreaming
+            ? html`
+                <button class="send-btn stop" @click=${this.onStop} title="Stop">
+                  &#9632;
+                </button>
+              `
+            : html`
+                <button
+                  class="send-btn send"
+                  @click=${this.onSend}
+                  ?disabled=${
+                    this.disabled ||
+                    this.processingPaste ||
+                    (!this.text.trim() && this.pastedImages.length === 0)
+                  }
+                  title="Send"
+                >
+                  &#9654;
+                </button>
+              `}
+        </div>
       </div>
     `;
   }
@@ -493,26 +556,49 @@ export class ChatInput extends LitElement {
     await this.addImageFiles(imageFiles);
   }
 
-  private onDragOver(e: DragEvent) {
+  private onDropZoneDragEnter(e: DragEvent) {
     if (this.disabled) return;
+
     const transfer = e.dataTransfer;
     if (!transfer || !this.hasFileTransfer(transfer)) return;
 
     e.preventDefault();
-    transfer.dropEffect = "copy";
+    this.dragDepth += 1;
     if (!this.isDragOver) {
       this.isDragOver = true;
     }
   }
 
-  private onDragLeave() {
-    this.isDragOver = false;
+  private onDropZoneDragOver(e: DragEvent) {
+    if (this.disabled) return;
+
+    const transfer = e.dataTransfer;
+    if (!transfer || !this.hasFileTransfer(transfer)) return;
+
+    e.preventDefault();
+    transfer.dropEffect = "copy";
   }
 
-  private async onDrop(e: DragEvent) {
+  private onDropZoneDragLeave(e: DragEvent) {
+    if (this.disabled) return;
+
+    const transfer = e.dataTransfer;
+    if (!transfer || !this.hasFileTransfer(transfer)) return;
+
+    e.preventDefault();
+
+    this.dragDepth = Math.max(0, this.dragDepth - 1);
+    if (this.dragDepth === 0) {
+      this.isDragOver = false;
+    }
+  }
+
+  private async onDropZoneDrop(e: DragEvent) {
+    this.dragDepth = 0;
     this.isDragOver = false;
 
     if (this.disabled) return;
+
     const transfer = e.dataTransfer;
     if (!transfer || !this.hasFileTransfer(transfer)) return;
 
@@ -522,6 +608,33 @@ export class ChatInput extends LitElement {
     if (imageFiles.length === 0) {
       this.attachmentError = "Only image files can be attached.";
       return;
+    }
+
+    await this.addImageFiles(imageFiles);
+  }
+
+  private onAttachClick() {
+    if (this.disabled || this.processingPaste) return;
+
+    this.attachmentError = "";
+    this.fileInput?.click();
+  }
+
+  private async onFileInputChange(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    input.value = "";
+
+    if (files.length === 0) return;
+
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (imageFiles.length === 0) {
+      this.attachmentError = "Only image files can be attached.";
+      return;
+    }
+
+    if (imageFiles.length !== files.length) {
+      this.attachmentError = "Only image files were attached.";
     }
 
     await this.addImageFiles(imageFiles);
@@ -553,6 +666,8 @@ export class ChatInput extends LitElement {
   }
 
   private async addImageFiles(files: File[]) {
+    if (this.processingPaste) return;
+
     this.attachmentError = "";
 
     const remainingSlots = MAX_PASTED_IMAGES - this.pastedImages.length;
@@ -600,6 +715,7 @@ export class ChatInput extends LitElement {
     this.pastedImages = [];
     this.attachmentError = "";
     this.isDragOver = false;
+    this.dragDepth = 0;
     if (this.textarea) {
       this.textarea.style.height = "auto";
     }

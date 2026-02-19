@@ -5,8 +5,6 @@ export interface ServerConfig {
   port: number;
   sessionDir: string;
   cwd: string;
-  defaultModel: string | null;
-  defaultThinkingLevel: string;
   idleTimeoutMs: number;
   piCommand: string;
 }
@@ -30,8 +28,6 @@ export function loadConfig(argv: string[]): ServerConfig {
     10,
   );
 
-  const defaultModel = process.env.PI_DEFAULT_MODEL || null;
-  const defaultThinkingLevel = process.env.PI_DEFAULT_THINKING_LEVEL || "off";
   const idleTimeoutMs = parseInt(
     process.env.PI_IDLE_TIMEOUT_MS || "300000",
     10,
@@ -42,8 +38,6 @@ export function loadConfig(argv: string[]): ServerConfig {
     port,
     sessionDir,
     cwd,
-    defaultModel,
-    defaultThinkingLevel,
     idleTimeoutMs,
     piCommand,
   };

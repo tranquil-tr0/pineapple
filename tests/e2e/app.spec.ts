@@ -12,7 +12,7 @@ async function deleteSession(baseURL: string, id: string): Promise<void> {
 }
 
 test.describe("Landing Page", () => {
-  test("shows header and new button", async ({ page, baseURL }) => {
+  test("shows header and new button", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("session-list")).toBeAttached();
 
@@ -32,7 +32,6 @@ test.describe("Landing Page", () => {
 
   test("shows empty state when no sessions exist", async ({
     page,
-    baseURL,
   }) => {
     await page.goto("/");
     // Just verify the page loaded without errors
@@ -375,6 +374,110 @@ test.describe("Chat View", () => {
       id: "ext-1",
       confirmed: true,
     });
+  });
+
+  test("renders extension notify requests inline in message list", async ({ page }) => {
+    await page.goto(`/#/session/${sessionId}`);
+    await expect(page.locator("chat-view")).toBeAttached();
+
+    await page.locator("chat-view").evaluate((el) => {
+      const view = el as unknown as {
+        handleAgentEvent?: (event: unknown) => void;
+      };
+
+      view.handleAgentEvent?.({
+        type: "extension_ui_request",
+        id: "note-1",
+        method: "notify",
+        message: "Compaction started",
+        notifyType: "warning",
+      });
+    });
+
+    await page.waitForTimeout(120);
+
+    const rendered = await page.locator("chat-view").evaluate((el) => {
+      const list = el.querySelector("message-list");
+      const custom = list?.querySelector(".custom-message") as
+        | HTMLElement
+        | null;
+      return {
+        exists: !!custom,
+        text: custom?.textContent || "",
+      };
+    });
+
+    expect(rendered.exists).toBe(true);
+    expect(rendered.text).toContain("Compaction started");
+  });
+
+  test("shows auto compaction events inline", async ({ page }) => {
+    await page.goto(`/#/session/${sessionId}`);
+    await expect(page.locator("chat-view")).toBeAttached();
+
+    await page.locator("chat-view").evaluate((el) => {
+      const view = el as unknown as {
+        handleAgentEvent?: (event: unknown) => void;
+      };
+
+      view.handleAgentEvent?.({
+        type: "auto_compaction_start",
+        reason: "overflow",
+      });
+    });
+
+    await page.waitForTimeout(120);
+
+    const rendered = await page.locator("chat-view").evaluate((el) => {
+      const list = el.querySelector("message-list");
+      const custom = list?.querySelector(".custom-message") as
+        | HTMLElement
+        | null;
+      return {
+        exists: !!custom,
+        text: custom?.textContent || "",
+      };
+    });
+
+    expect(rendered.exists).toBe(true);
+    expect(rendered.text).toContain("Auto-compacting context");
+  });
+
+  test("renders compaction summary messages", async ({ page }) => {
+    await page.goto(`/#/session/${sessionId}`);
+    await expect(page.locator("chat-view")).toBeAttached();
+
+    await page.locator("chat-view").evaluate((el) => {
+      const view = el as unknown as {
+        messages: unknown[];
+        requestUpdate: () => void;
+      };
+      view.messages = [
+        {
+          role: "compactionSummary",
+          summary: "Older context condensed into summary text.",
+          tokensBefore: 23456,
+          timestamp: Date.now(),
+        },
+      ];
+      view.requestUpdate();
+    });
+
+    await page.waitForTimeout(120);
+
+    const rendered = await page.locator("chat-view").evaluate((el) => {
+      const details = el.querySelector(".compaction") as
+        | HTMLDetailsElement
+        | null;
+      return {
+        exists: !!details,
+        text: details?.textContent || "",
+      };
+    });
+
+    expect(rendered.exists).toBe(true);
+    expect(rendered.text).toContain("Compacted from 23,456 tokens");
+    expect(rendered.text).toContain("Older context condensed into summary text.");
   });
 
   test("tool calls are collapsible and show output when expanded", async ({ page }) => {
@@ -769,12 +872,13 @@ test.describe("Session Archive", () => {
     await page.goto(`/#/session/${id}`);
     await expect(page.locator("chat-view")).toBeAttached();
 
-    await page.locator("chat-view").evaluate((el) => {
-      const view = el as unknown as {
-        routeAndSubmitText?: (text: string, intent: string) => void;
-      };
-      view.routeAndSubmitText?.("hello again", "send");
-    });
+    await expect(page.locator("chat-view .cv-title")).toContainText(
+      "archived: Resume Later",
+    );
+
+    const input = page.locator("chat-input textarea");
+    await input.fill("hello again");
+    await input.press("Enter");
 
     await expect
       .poll(

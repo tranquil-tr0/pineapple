@@ -11,24 +11,39 @@
     "start": "node dist/server/main.js",
     "test": "npm run test:api && npm run test:e2e",
     "test:api": "vitest run --config vitest.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.server.json",
+    "lint": "eslint .",
+    "lint:css": "stylelint \"src/client/styles/**/*.css\"",
+    "check:unused:exports": "ts-prune -p tsconfig.json -i \"used in module\"",
+    "check:unused:deps": "depcheck --skip-missing --ignore-dirs=dist,node_modules,deps,test-results --ignores=@types/express,@types/node,@types/ws,@playwright/test,vitest,vite,tsx,typescript,eslint,@eslint/js,typescript-eslint,eslint-plugin-lit,globals,stylelint,stylelint-config-standard,ts-prune,depcheck,lit",
+    "check:e2e:guardrails": "node scripts/check-e2e-guardrails.mjs",
+    "check:e2e:guardrails:update-baseline": "node scripts/check-e2e-guardrails.mjs --update-baseline",
+    "check": "npm run typecheck && npm run lint && npm run lint:css && npm run check:e2e:guardrails && npm run check:unused:deps && npm run check:unused:exports && npm run test:api && npm run test:e2e && npm run build"
   },
   "dependencies": {
-    "@mariozechner/pi-web-ui": "^0.53.0",
     "express": "^5.1.0",
-    "glob": "^11.0.0",
     "highlight.js": "^11.11.1",
     "marked": "^16.3.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@playwright/test": "^1.56.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.0",
+    "depcheck": "^1.4.7",
+    "eslint": "^9.39.2",
+    "eslint-plugin-lit": "^2.2.1",
+    "globals": "^17.3.0",
     "lit": "^3.3.1",
+    "stylelint": "^17.3.0",
+    "stylelint-config-standard": "^40.0.0",
+    "ts-prune": "^0.10.3",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.56.0",
     "vite": "^6.3.0",
     "vitest": "^3.2.0"
   }

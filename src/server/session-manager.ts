@@ -1,7 +1,11 @@
 import { readdir, readFile, rm, mkdir, appendFile, stat } from "fs/promises";
 import { join } from "path";
 import { RpcProcess } from "./rpc-process.js";
-import type { SessionMeta, RpcEvent, SessionActivityState } from "@shared/types.js";
+import type {
+  SessionMeta,
+  RpcEvent,
+  SessionActivityState,
+} from "@shared/types.js";
 import type { ServerConfig } from "./config.js";
 
 interface ActiveSession {

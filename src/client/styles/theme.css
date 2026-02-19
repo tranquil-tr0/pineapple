@@ -594,35 +594,6 @@ chat-view {
   color: var(--customMessageText);
 }
 
-.cv-extension-notification-stack {
-  position: fixed;
-  top: 58px;
-  right: 12px;
-  z-index: 120;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: min(420px, calc(100vw - 24px));
-}
-
-.cv-extension-note {
-  border: 1px solid var(--dim);
-  background: var(--surface);
-  color: var(--text-primary);
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 12px;
-  box-shadow: var(--shadow-lg);
-}
-
-.cv-extension-note.warning {
-  border-color: var(--warning);
-}
-
-.cv-extension-note.error {
-  border-color: var(--error);
-}
-
 .cv-extension-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -776,6 +747,85 @@ chat-view {
   position: relative;
 }
 
+.custom-message,
+.custom-summary-card {
+  background: var(--customMessageBg);
+  color: var(--customMessageText);
+  border: 1px solid var(--borderMuted);
+  position: relative;
+}
+
+.custom-message {
+  padding: 12px 14px;
+}
+
+.custom-message-label {
+  color: var(--customMessageLabel);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.custom-message-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.custom-message.note-warning {
+  border-color: var(--warning);
+}
+
+.custom-message.note-error {
+  border-color: var(--error);
+}
+
+.custom-summary-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.custom-summary-card > .message-timestamp {
+  padding: 8px 14px 0;
+  margin-bottom: 0;
+}
+
+.custom-summary-toggle {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.custom-summary-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.custom-summary-toggle::marker {
+  content: "";
+}
+
+.custom-summary-card:not([open]) .custom-message-body {
+  display: none;
+}
+
+.custom-message-summary {
+  color: var(--customMessageText);
+}
+
+.custom-message-body {
+  padding: 0 14px 12px;
+  color: var(--customMessageText);
+}
+
+.branch-summary .custom-summary-toggle {
+  border-left: 2px solid var(--warning);
+}
+
+.compaction .custom-summary-toggle {
+  border-left: 2px solid var(--borderAccent);
+}
+
 .copy-link-btn {
   position: absolute;
   top: 8px;
@@ -798,7 +848,9 @@ chat-view {
 
 .user-message:hover .copy-link-btn,
 .assistant-message:hover .copy-link-btn,
-.tool-execution:hover .copy-link-btn {
+.tool-execution:hover .copy-link-btn,
+.custom-message:hover .copy-link-btn,
+.custom-summary-card:hover .copy-link-btn {
   opacity: 1;
 }
 
@@ -817,7 +869,9 @@ chat-view {
 
 .user-message.highlight,
 .assistant-message.highlight,
-.tool-execution.highlight {
+.tool-execution.highlight,
+.custom-message.highlight,
+.custom-summary-card.highlight {
   animation: highlight-pulse 2s ease-out;
 }
 
@@ -893,16 +947,8 @@ chat-view {
   display: none;
 }
 
-.tool-call-summary::before {
-  content: "▸";
-  color: var(--muted);
-  margin-right: 4px;
-  transition: transform 0.15s ease;
-  flex: 0 0 auto;
-}
-
-.tool-call-details[open] .tool-call-summary::before {
-  transform: rotate(90deg);
+.tool-call-summary::marker {
+  content: "";
 }
 
 .tool-call-summary-main {

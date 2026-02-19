@@ -120,12 +120,6 @@ export class ChatView extends LitElement {
     lines: string[];
     placement: "aboveEditor" | "belowEditor";
   }> = [];
-  @state()
-  private extensionNotifications: Array<{
-    id: string;
-    message: string;
-    notifyType: "info" | "warning" | "error";
-  }> = [];
 
   // Pending tool calls for local MessageList
   private pendingToolCalls = new Set<string>();
@@ -188,7 +182,6 @@ export class ChatView extends LitElement {
       this.pendingExtensionUiRequests = [];
       this.extensionStatuses = [];
       this.extensionWidgets = [];
-      this.extensionNotifications = [];
       this.sessionName = "Session";
       this.sessionCreatedAt = "";
       this.sessionLastActivityAt = "";
@@ -287,9 +280,12 @@ export class ChatView extends LitElement {
 
   private handleServerMessage(msg: ServerMessage) {
     switch (msg.type) {
-      case "state":
+      case "state": {
         this.partialToolResults.clear();
-        this.messages = msg.messages || [];
+        this.messages = [
+          ...(msg.messages || []),
+          ...this.getInlineNotificationMessages(),
+        ];
         this.isStreaming = msg.isStreaming;
         if (msg.model) {
           this.currentProvider = msg.model.provider;
@@ -306,6 +302,9 @@ export class ChatView extends LitElement {
         if (msg.followUpMode) {
           this.currentFollowUpMode = msg.followUpMode;
         }
+        if (typeof msg.sessionName === "string" && msg.sessionName.trim()) {
+          this.sessionName = msg.sessionName;
+        }
         this.persistedMessageCount = msg.messageCount || 0;
         this.pendingMessageCount = msg.pendingMessageCount || 0;
         if (typeof msg.systemPrompt === "string") {
@@ -316,6 +315,7 @@ export class ChatView extends LitElement {
         }
         this.scheduleScroll();
         break;
+      }
 
       case "agent_event":
         this.handleAgentEvent(msg.event);
@@ -461,13 +461,36 @@ export class ChatView extends LitElement {
         break;
       }
 
+      case "auto_compaction_start": {
+        const reason = event.reason === "overflow"
+          ? "Context overflow detected. Auto-compacting context…"
+          : "Auto-compacting context…";
+        this.appendInlineNotificationMessage(reason, "warning");
+        break;
+      }
+
+      case "auto_compaction_end": {
+        if (event.aborted === true) {
+          this.appendInlineNotificationMessage("Auto-compaction cancelled.", "warning");
+          break;
+        }
+
+        if (typeof event.errorMessage === "string" && event.errorMessage.trim()) {
+          this.appendInlineNotificationMessage(event.errorMessage, "error");
+        }
+        break;
+      }
+
       case "response": {
         const data = event.data as
           | { messages?: AgentMessageData[] }
           | undefined;
         if (data?.messages) {
           this.partialToolResults.clear();
-          this.messages = data.messages;
+          this.messages = [
+            ...data.messages,
+            ...this.getInlineNotificationMessages(),
+          ];
           this.scheduleScroll();
         }
         break;
@@ -553,7 +576,7 @@ export class ChatView extends LitElement {
   private handleExtensionUIRequest(request: ExtensionUIRequest) {
     switch (request.method) {
       case "notify": {
-        this.pushExtensionNotification(
+        this.appendInlineNotificationMessage(
           request.message,
           request.notifyType || "info",
         );
@@ -669,21 +692,34 @@ export class ChatView extends LitElement {
     this.dequeueExtensionRequest();
   }
 
-  private pushExtensionNotification(
+  private getInlineNotificationMessages(): AgentMessageData[] {
+    return this.messages.filter(
+      (entry) =>
+        entry.role === "custom" &&
+        entry.customType === "notification" &&
+        entry.display !== false,
+    );
+  }
+
+  private appendInlineNotificationMessage(
     message: string,
     notifyType: "info" | "warning" | "error",
   ) {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    this.extensionNotifications = [
-      ...this.extensionNotifications,
-      { id, message, notifyType },
-    ];
+    const text = message.trim();
+    if (!text) return;
 
-    setTimeout(() => {
-      this.extensionNotifications = this.extensionNotifications.filter(
-        (note) => note.id !== id,
-      );
-    }, 6000);
+    const noteMessage: AgentMessageData = {
+      role: "custom",
+      customType: "notification",
+      content: [{ type: "text", text }],
+      display: true,
+      details: { notifyType },
+      timestamp: Date.now(),
+    };
+
+    this.messages = [...this.messages, noteMessage];
+    this.shouldAutoScroll = true;
+    this.scheduleScroll();
   }
 
   private _lastStreamClone: AgentMessageData | null = null;
@@ -749,7 +785,7 @@ export class ChatView extends LitElement {
       this.commands.length > 0 &&
       !this.commands.some((cmd) => cmd.name === slashName)
     ) {
-      this.pushExtensionNotification(
+      this.appendInlineNotificationMessage(
         `Unknown slash command '/${slashName}'. Built-in TUI commands are not available over RPC; use listed extension/prompt/skill commands.`,
         "warning",
       );
@@ -766,13 +802,9 @@ export class ChatView extends LitElement {
       case "none":
         return;
 
-      case "local_command":
-        // Reserved for local client-side slash commands, currently unused.
-        return;
-
       case "bash":
         if (images.length > 0) {
-          this.pushExtensionNotification(
+          this.appendInlineNotificationMessage(
             "Image attachments are ignored for shell commands.",
             "warning",
           );
@@ -864,18 +896,6 @@ export class ChatView extends LitElement {
     if (e.key === "Escape" && this.extensionUiRequest) {
       e.preventDefault();
       this.cancelExtensionRequest();
-      return;
-    }
-
-    if (e.ctrlKey && (e.key === "t" || e.key === "T")) {
-      e.preventDefault();
-      this.showThinking = !this.showThinking;
-      return;
-    }
-
-    if (e.ctrlKey && (e.key === "o" || e.key === "O")) {
-      e.preventDefault();
-      this.expandToolOutputs = !this.expandToolOutputs;
     }
   };
 
@@ -1015,16 +1035,27 @@ export class ChatView extends LitElement {
       }
     }
 
-    return this.messages.filter((message) => {
-      if (message.role === "artifact" || message.role === "system") return false;
+    return this.messages.flatMap((message, sourceIndex) => {
+      if (message.role === "artifact" || message.role === "system") return [];
+
+      if (
+        message.role === "custom" &&
+        Object.prototype.hasOwnProperty.call(message, "display") &&
+        message.display === false
+      ) {
+        return [];
+      }
+
       if (
         message.role === "toolResult" &&
         typeof message.toolCallId === "string" &&
         toolCallIds.has(message.toolCallId)
       ) {
-        return false;
+        return [];
       }
-      return true;
+
+      const targetId = this.messageDomId(sourceIndex);
+      return [{ ...message, _targetId: targetId }];
     });
   }
 
@@ -1033,7 +1064,7 @@ export class ChatView extends LitElement {
 
     const entries = renderable
       .map((message, renderIndex): SidebarEntry | null => {
-        const targetId = this.messageDomId(renderIndex);
+        const targetId = this.messageTargetId(message, renderIndex);
 
         if (message.role === "user" || message.role === "user-with-attachments") {
           return {
@@ -1077,6 +1108,43 @@ export class ChatView extends LitElement {
           return {
             role: "tool",
             text: `[$ ${command}] ${output}`.trim(),
+            targetId,
+          };
+        }
+
+        if (message.role === "custom") {
+          const customType =
+            typeof message.customType === "string" && message.customType.trim()
+              ? message.customType.trim()
+              : "custom";
+          const text = this.extractPreviewText(message.content);
+          return {
+            role: "assistant",
+            text: `[${customType}] ${text}`.trim(),
+            targetId,
+          };
+        }
+
+        if (message.role === "branchSummary") {
+          const summary =
+            typeof message.summary === "string" && message.summary.trim()
+              ? message.summary.trim()
+              : "Branch summary";
+          return {
+            role: "assistant",
+            text: `[branch] ${summary}`,
+            targetId,
+          };
+        }
+
+        if (message.role === "compactionSummary") {
+          const tokensBefore =
+            typeof message.tokensBefore === "number"
+              ? message.tokensBefore.toLocaleString()
+              : "?";
+          return {
+            role: "assistant",
+            text: `[compaction] ${tokensBefore} tokens`,
             targetId,
           };
         }
@@ -1145,8 +1213,16 @@ export class ChatView extends LitElement {
     return text.slice(0, 140);
   }
 
-  private messageDomId(renderIndex: number): string {
-    return `msg-${renderIndex}`;
+  private messageTargetId(message: AgentMessageData, fallbackIndex: number): string {
+    const explicit = (message as Record<string, unknown>)._targetId;
+    if (typeof explicit === "string" && explicit.trim()) {
+      return explicit;
+    }
+    return this.messageDomId(fallbackIndex);
+  }
+
+  private messageDomId(sourceIndex: number): string {
+    return `msg-${sourceIndex}`;
   }
 
   private computeStats(renderable: AgentMessageData[]): SessionStats {
@@ -1520,20 +1596,6 @@ export class ChatView extends LitElement {
           ? html`<div class="cv-banner error">${this.error}</div>`
           : nothing}
 
-      ${this.extensionNotifications.length > 0
-        ? html`
-            <div class="cv-extension-notification-stack">
-              ${this.extensionNotifications.map(
-                (note) => html`
-                  <div class="cv-extension-note ${note.notifyType}">
-                    ${note.message}
-                  </div>
-                `,
-              )}
-            </div>
-          `
-        : nothing}
-
       <div class="cv-body">
         <aside class="cv-sidebar" aria-label="Message history">
           <div class="cv-sidebar-controls">
@@ -1592,13 +1654,13 @@ export class ChatView extends LitElement {
                 class="cv-shortcut-btn ${this.showThinking ? "active" : ""}"
                 @click=${() => (this.showThinking = !this.showThinking)}
               >
-                Ctrl+T thinking
+                Thinking
               </button>
               <button
                 class="cv-shortcut-btn ${this.expandToolOutputs ? "active" : ""}"
                 @click=${() => (this.expandToolOutputs = !this.expandToolOutputs)}
               >
-                Ctrl+O tools
+                Tool outputs
               </button>
             </div>
 

@@ -26,26 +26,6 @@ export interface SessionMeta {
   activity: SessionActivity;
 }
 
-// ---- REST responses ----
-
-export interface SessionListResponse {
-  sessions: SessionMeta[];
-}
-
-export interface SessionCreatedResponse {
-  id: string;
-}
-
-export interface SessionUpdatedResponse {
-  id: string;
-  name: string;
-}
-
-export interface HealthResponse {
-  status: "ok";
-  activeSessions: number;
-}
-
 // ---- WebSocket: client → server ----
 
 export interface ImageContent {
@@ -60,7 +40,6 @@ export type ClientMessage =
   | { type: "follow_up"; text: string; images?: ImageContent[] }
   | { type: "bash"; command: string; includeInContext?: boolean }
   | { type: "abort" }
-  | { type: "abort_bash" }
   | { type: "get_state" }
   | { type: "set_model"; provider: string; model: string }
   | { type: "set_thinking_level"; level: ThinkingLevel }

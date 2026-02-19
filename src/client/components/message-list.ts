@@ -56,6 +56,28 @@ interface BashExecutionMessage extends AgentMessageData {
   excludeFromContext?: boolean;
 }
 
+interface CustomMessage extends AgentMessageData {
+  role: "custom";
+  customType?: string;
+  content?: unknown;
+  display?: boolean;
+  details?: {
+    notifyType?: "info" | "warning" | "error";
+    [key: string]: unknown;
+  };
+}
+
+interface BranchSummaryMessage extends AgentMessageData {
+  role: "branchSummary";
+  summary?: string;
+}
+
+interface CompactionSummaryMessage extends AgentMessageData {
+  role: "compactionSummary";
+  summary?: string;
+  tokensBefore?: number;
+}
+
 @customElement("message-list")
 export class MessageList extends LitElement {
   override createRenderRoot() {
@@ -103,6 +125,15 @@ export class MessageList extends LitElement {
 
     const visible = this.messages.filter((message) => {
       if (message.role === "artifact") return false;
+
+      if (
+        message.role === "custom" &&
+        Object.prototype.hasOwnProperty.call(message, "display") &&
+        message.display === false
+      ) {
+        return false;
+      }
+
       if (
         message.role === "toolResult" &&
         typeof message.toolCallId === "string" &&
@@ -110,6 +141,7 @@ export class MessageList extends LitElement {
       ) {
         return false;
       }
+
       return true;
     });
 
@@ -143,10 +175,29 @@ export class MessageList extends LitElement {
       return this.renderBashExecution(message as BashExecutionMessage, renderIndex);
     }
 
+    if (message.role === "custom") {
+      return this.renderCustomMessage(message as CustomMessage, renderIndex);
+    }
+
+    if (message.role === "branchSummary") {
+      return this.renderBranchSummary(message as BranchSummaryMessage, renderIndex);
+    }
+
+    if (message.role === "compactionSummary") {
+      return this.renderCompactionSummary(
+        message as CompactionSummaryMessage,
+        renderIndex,
+      );
+    }
+
     return nothing;
   }
 
-  private targetId(renderIndex: number): string {
+  private targetId(message: AgentMessageData, renderIndex: number): string {
+    const explicit = (message as Record<string, unknown>)._targetId;
+    if (typeof explicit === "string" && explicit.trim()) {
+      return explicit;
+    }
     return `${this.targetPrefix}${renderIndex}`;
   }
 
@@ -180,7 +231,7 @@ export class MessageList extends LitElement {
   ): TemplateResult {
     const ts = formatTimestamp(message.timestamp);
     const text = this.extractText(message.content).trim();
-    const targetId = this.targetId(renderIndex);
+    const targetId = this.targetId(message, renderIndex);
     const images = this.asBlocks(message.content).filter(
       (part) =>
         part.type === "image" &&
@@ -223,7 +274,7 @@ export class MessageList extends LitElement {
   ): TemplateResult {
     const ts = formatTimestamp(message.timestamp);
     const blocks = this.asBlocks(message.content);
-    const targetId = this.targetId(renderIndex);
+    const targetId = this.targetId(message, renderIndex);
 
     return html`
       <div class="assistant-message ml-assistant" id=${targetId}>
@@ -265,7 +316,7 @@ export class MessageList extends LitElement {
   ): TemplateResult {
     const status = message.isError ? "error" : "success";
     const ts = formatTimestamp(message.timestamp);
-    const targetId = this.targetId(renderIndex);
+    const targetId = this.targetId(message, renderIndex);
 
     const output = this.getToolResultText(message).trim();
     const summary = this.singleLine(output || "(no output)");
@@ -302,7 +353,7 @@ export class MessageList extends LitElement {
     renderIndex: number,
   ): TemplateResult {
     const ts = formatTimestamp(message.timestamp);
-    const targetId = this.targetId(renderIndex);
+    const targetId = this.targetId(message, renderIndex);
     const output = (message.output || "").trim();
     const summary = this.singleLine(output || "(no output)");
     const status = message.cancelled
@@ -348,6 +399,105 @@ export class MessageList extends LitElement {
                 Full output: ${message.fullOutputPath}
               </div>`
             : nothing}
+        </div>
+      </details>
+    `;
+  }
+
+  private renderCustomMessage(
+    message: CustomMessage,
+    renderIndex: number,
+  ): TemplateResult | typeof nothing {
+    if (message.display === false) return nothing;
+
+    const ts = formatTimestamp(message.timestamp);
+    const targetId = this.targetId(message, renderIndex);
+    const customType =
+      typeof message.customType === "string" && message.customType.trim()
+        ? message.customType.trim()
+        : "custom";
+    const text = this.extractText(message.content).trim();
+    const notifyType =
+      message.details && typeof message.details === "object"
+        ? (message.details.notifyType as "info" | "warning" | "error" | undefined)
+        : undefined;
+
+    return html`
+      <div
+        class="custom-message hook-message ${notifyType ? `note-${notifyType}` : ""}"
+        id=${targetId}
+      >
+        ${this.renderCopyButton(targetId)}
+        ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
+        <div class="custom-message-label">[${customType}]</div>
+        ${text
+          ? html`<div class="markdown-content">${unsafeHTML(safeMarkedParse(text))}</div>`
+          : html`<div class="custom-message-empty">(no content)</div>`}
+      </div>
+    `;
+  }
+
+  private renderBranchSummary(
+    message: BranchSummaryMessage,
+    renderIndex: number,
+  ): TemplateResult {
+    const ts = formatTimestamp(message.timestamp);
+    const targetId = this.targetId(message, renderIndex);
+    const summary =
+      typeof message.summary === "string" && message.summary.trim()
+        ? message.summary
+        : "(empty branch summary)";
+
+    return html`
+      <details
+        class="branch-summary custom-summary-card"
+        id=${targetId}
+        ?open=${this.expandToolOutputs}
+      >
+        ${this.renderCopyButton(targetId)}
+        ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
+        <summary class="custom-summary-toggle">
+          <span class="custom-message-label">[branch]</span>
+          <span class="custom-message-summary">Branch summary</span>
+        </summary>
+        <div class="custom-message-body markdown-content">
+          ${unsafeHTML(safeMarkedParse(summary))}
+        </div>
+      </details>
+    `;
+  }
+
+  private renderCompactionSummary(
+    message: CompactionSummaryMessage,
+    renderIndex: number,
+  ): TemplateResult {
+    const ts = formatTimestamp(message.timestamp);
+    const targetId = this.targetId(message, renderIndex);
+    const summary =
+      typeof message.summary === "string" && message.summary.trim()
+        ? message.summary
+        : "(empty compaction summary)";
+    const tokensBefore =
+      typeof message.tokensBefore === "number"
+        ? message.tokensBefore.toLocaleString()
+        : "?";
+
+    return html`
+      <details
+        class="compaction custom-summary-card"
+        id=${targetId}
+        ?open=${this.expandToolOutputs}
+      >
+        ${this.renderCopyButton(targetId)}
+        ${ts ? html`<div class="message-timestamp">${ts}</div>` : nothing}
+        <summary class="custom-summary-toggle">
+          <span class="custom-message-label">[compaction]</span>
+          <span class="custom-message-summary"
+            >Compacted from ${tokensBefore} tokens</span
+          >
+        </summary>
+        <div class="custom-message-body markdown-content">
+          ${unsafeHTML(safeMarkedParse(summary))}
         </div>
       </details>
     `;

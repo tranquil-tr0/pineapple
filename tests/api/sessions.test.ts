@@ -85,8 +85,6 @@ describe("GET /api/health", () => {
       port: 0,
       sessionDir,
       cwd: sessionDir,
-      defaultModel: null,
-      defaultThinkingLevel: "off",
       idleTimeoutMs: 5000,
       piCommand: "pi",
     };
@@ -149,8 +147,6 @@ describe("Session listing from JSONL files", () => {
       port: 0,
       sessionDir,
       cwd: sessionDir,
-      defaultModel: null,
-      defaultThinkingLevel: "off",
       idleTimeoutMs: 5000,
       piCommand: "pi",
     };
@@ -263,8 +259,6 @@ describe("Session CRUD with real pi", () => {
       port: 0,
       sessionDir,
       cwd,
-      defaultModel: null,
-      defaultThinkingLevel: "off",
       idleTimeoutMs: 30000,
       piCommand: "pi",
     };
@@ -356,8 +350,6 @@ describe("Session name fallbacks", () => {
       port: 0,
       sessionDir,
       cwd: sessionDir,
-      defaultModel: null,
-      defaultThinkingLevel: "off",
       idleTimeoutMs: 5000,
       piCommand: "pi",
     };

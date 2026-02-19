@@ -370,16 +370,11 @@ export async function handleSessionWebSocket(
 
       case "abort":
         rpc.send({ type: "abort" });
-        break;
-
-      case "abort_bash": {
-        rpc.send({ type: "abort_bash" });
         if (runningLocalShell) {
           runningLocalShell.aborted = true;
           runningLocalShell.proc.kill("SIGTERM");
         }
         break;
-      }
 
       case "get_state": {
         const id = rpc.send({ type: "get_state" });

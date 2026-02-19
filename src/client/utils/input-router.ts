@@ -4,7 +4,6 @@ export type SubmitIntent = "send" | "steer" | "follow_up";
 
 export type RoutedInput =
   | { kind: "none" }
-  | { kind: "local_command"; name: string; text: string }
   | { kind: "bash"; command: string; includeInContext: boolean }
   | { kind: "prompt"; text: string }
   | { kind: "steer"; text: string }
@@ -14,7 +13,6 @@ export interface RouteInputOptions {
   intent: SubmitIntent;
   isStreaming: boolean;
   commands?: SlashCommandSpec[];
-  localCommandNames?: Iterable<string>;
   allowEmpty?: boolean;
 }
 
@@ -36,9 +34,6 @@ export function routeInputText(
   }
 
   const slashName = parseSlashCommandName(text);
-  if (slashName && isLocalCommand(slashName, options.localCommandNames)) {
-    return { kind: "local_command", name: slashName, text };
-  }
 
   if (options.intent === "follow_up") {
     return { kind: "follow_up", text };
@@ -73,14 +68,6 @@ function parseBangCommand(text: string, prefix: "!" | "!!"): string | null {
 
   const command = text.slice(prefix.length).trim();
   return command.length > 0 ? command : null;
-}
-
-function isLocalCommand(name: string, localCommandNames?: Iterable<string>): boolean {
-  if (!localCommandNames) return false;
-  for (const local of localCommandNames) {
-    if (local === name) return true;
-  }
-  return false;
 }
 
 function isExtensionSlashCommand(
