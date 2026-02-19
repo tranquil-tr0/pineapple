@@ -106,6 +106,17 @@ export class ChatView extends LitElement {
   private sessionsEventSource: EventSource | null = null;
   private sessionsSSEHasConnected = false;
 
+  private _lastMessages: AgentMessageData[] | null = null;
+  private _cachedRenderable: AgentMessageData[] = [];
+  private _cachedStats: SessionStats = { userMessages: 0, assistantMessages: 0, toolCalls: 0 };
+  private _cachedKnownTools: ToolSpec[] = [];
+  private _cachedUsageTotals: UsageTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, activeContextTokens: null, totalCost: 0 };
+
+  private _lastSidebarRenderable: AgentMessageData[] | null = null;
+  private _lastSidebarSearch = "";
+  private _lastSidebarFilter: SidebarFilterMode = "no-tools";
+  private _cachedSidebarEntries: SidebarEntry[] = [];
+
   // ---- Lifecycle ----
 
   connectedCallback() {
@@ -260,11 +271,10 @@ export class ChatView extends LitElement {
 
   private syncExtensionUiState() {
     const snapshot = this.extensionUiState.snapshot();
-    this.extensionUiRequest = snapshot.request;
-    this.extensionUiInput = snapshot.input;
-    this.extensionStatuses = snapshot.statuses;
-    this.extensionWidgets = snapshot.widgets;
-    this.requestUpdate();
+    if (snapshot.request !== this.extensionUiRequest) this.extensionUiRequest = snapshot.request;
+    if (snapshot.input !== this.extensionUiInput) this.extensionUiInput = snapshot.input;
+    if (snapshot.statuses !== this.extensionStatuses) this.extensionStatuses = snapshot.statuses;
+    if (snapshot.widgets !== this.extensionWidgets) this.extensionWidgets = snapshot.widgets;
   }
 
   // ---- Interaction ----
@@ -635,11 +645,30 @@ export class ChatView extends LitElement {
 
   render() {
     const rs = this.runtimeState;
-    const renderableMessages = this.getRenderableMessages();
-    const sidebarEntries = this.getSidebarEntries(renderableMessages);
-    const stats = this.computeStats(renderableMessages);
-    const knownTools = this.getKnownToolSpecs(renderableMessages);
-    const usageTotals = this.computeUsageTotals(rs?.messages || []);
+    const messages = rs?.messages || [];
+    if (messages !== this._lastMessages) {
+      this._lastMessages = messages;
+      this._cachedRenderable = this.getRenderableMessages();
+      this._cachedStats = this.computeStats(this._cachedRenderable);
+      this._cachedKnownTools = this.getKnownToolSpecs(this._cachedRenderable);
+      this._cachedUsageTotals = this.computeUsageTotals(messages);
+    }
+    const renderableMessages = this._cachedRenderable;
+    const stats = this._cachedStats;
+    const knownTools = this._cachedKnownTools;
+    const usageTotals = this._cachedUsageTotals;
+
+    if (
+      renderableMessages !== this._lastSidebarRenderable ||
+      this.sidebarSearch !== this._lastSidebarSearch ||
+      this.sidebarFilter !== this._lastSidebarFilter
+    ) {
+      this._lastSidebarRenderable = renderableMessages;
+      this._lastSidebarSearch = this.sidebarSearch;
+      this._lastSidebarFilter = this.sidebarFilter;
+      this._cachedSidebarEntries = this.getSidebarEntries(renderableMessages);
+    }
+    const sidebarEntries = this._cachedSidebarEntries;
     const createdAtLabel = this.formatDateTime(this.sessionCreatedAt);
     const lastActivityAtLabel = this.formatDateTime(this.sessionLastActivityAt);
     const modelLabel = rs?.currentProvider ? `${rs.currentProvider}/${rs.currentModel}` : (rs?.currentModel || "unknown");

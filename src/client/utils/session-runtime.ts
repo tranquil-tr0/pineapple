@@ -94,6 +94,7 @@ export class SessionRuntime {
   private partialToolResults = new Map<string, AgentMessageData>();
   private streamMsg: PartialAssistantMessage | null = null;
   private streamUpdatePending = false;
+  private baseMessages: AgentMessageData[] = [];
 
   constructor(sessionId: string, extensionUiState: ExtensionUiState, listener: SessionRuntimeListener) {
     this.sessionId = sessionId;
@@ -210,13 +211,17 @@ export class SessionRuntime {
     const incomingMessages = msg.messages || [];
 
     const patch: Partial<SessionRuntimeState> = {
-      messages: incomingMessages,
       isStreaming: msg.isStreaming,
       currentThinkingLevel: (msg.thinkingLevel as ThinkingLevel) || "off",
       autoCompactionEnabled: msg.autoCompactionEnabled === true,
       pendingMessageCount: msg.pendingMessageCount || 0,
       tools: msg.tools || [],
     };
+
+    if (incomingMessages.length > 0 || this.state.messages.length === 0) {
+      patch.messages = incomingMessages;
+      this.baseMessages = incomingMessages;
+    }
 
     if (msg.model) {
       patch.currentProvider = msg.model.provider;
@@ -363,9 +368,9 @@ export class SessionRuntime {
     if (this.streamMsg && this.streamMsg.content.length > 0) {
       this.partialToolResults.clear();
       const assistantMsg = { ...this.streamMsg } as AgentMessageData;
-      this.updateState({
-        messages: [...this.state.messages.filter(m => !(m as any)._partialToolResult), assistantMsg]
-      });
+      const messages = [...this.baseMessages, assistantMsg];
+      this.baseMessages = messages;
+      this.updateState({ messages });
       this.streamMsg = null;
     }
   }
@@ -375,19 +380,24 @@ export class SessionRuntime {
     this.streamUpdatePending = true;
     requestAnimationFrame(() => {
       this.streamUpdatePending = false;
-      this.updateState({
-        messages: this.getMergedMessages(),
-        pendingToolCalls: new Set(this.pendingToolCalls),
-      });
+      const merged = this.getMergedMessages();
+      const patch: Partial<SessionRuntimeState> = { messages: merged };
+      if (!setsEqual(this.state.pendingToolCalls, this.pendingToolCalls)) {
+        patch.pendingToolCalls = new Set(this.pendingToolCalls);
+      }
+      this.updateState(patch);
     });
   }
 
   private getMergedMessages(): AgentMessageData[] {
-    const base = this.state.messages.filter(m => !(m as any)._partialToolResult);
     const results = Array.from(this.partialToolResults.values());
-    const merged = [...base, ...results];
+    const merged: AgentMessageData[] = [...this.baseMessages, ...results];
     if (this.streamMsg) {
-      merged.push(JSON.parse(JSON.stringify(this.streamMsg)));
+      merged.push({
+        ...this.streamMsg,
+        content: [...this.streamMsg.content],
+        _streamingId: "__streaming__",
+      } as AgentMessageData);
     }
     return merged;
   }
@@ -400,6 +410,7 @@ export class SessionRuntime {
     const patch: Partial<SessionRuntimeState> = { isStreaming: false };
     if (event.data?.messages) {
       patch.messages = event.data.messages;
+      this.baseMessages = event.data.messages;
       if (event.data.systemPrompt) patch.systemPrompt = event.data.systemPrompt;
       else patch.systemPrompt = this.deriveSystemPrompt(patch.messages!);
     }
@@ -460,4 +471,10 @@ export class SessionRuntime {
       wasInterrupted: false,
     });
   }
+}
+
+function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
+  if (a.size !== b.size) return false;
+  for (const item of a) if (!b.has(item)) return false;
+  return true;
 }

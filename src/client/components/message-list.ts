@@ -1,6 +1,7 @@
 import { LitElement, html, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import { repeat } from "lit/directives/repeat.js";
 import type { AgentMessageData } from "@shared/types.js";
 import {
   escapeHtml,
@@ -105,52 +106,43 @@ export class MessageList extends LitElement {
   @property({ type: Boolean }) expandToolOutputs = false;
   @property({ type: String }) targetPrefix = "msg-";
 
+  private toolCallHtmlCache = new Map<string, string>();
+
+  private _lastAllMessages: AgentMessageData[] | null = null;
+  private _toolResults = new Map<string, ToolResultMessage>();
+  private _toolCalls = new Set<string>();
+
   render() {
     const sourceMessages = this.allMessages.length > 0 ? this.allMessages : this.messages;
-    const toolResults = new Map<string, ToolResultMessage>();
-    const toolCalls = new Set<string>();
-
-    for (const message of sourceMessages) {
-      if (message.role === "assistant") {
-        for (const block of this.asBlocks(message.content)) {
-          if (block.type === "toolCall" && block.id) {
-            toolCalls.add(block.id);
+    if (sourceMessages !== this._lastAllMessages) {
+      this._lastAllMessages = sourceMessages;
+      this._toolResults.clear();
+      this._toolCalls.clear();
+      for (const message of sourceMessages) {
+        if (message.role === "assistant") {
+          for (const block of this.asBlocks(message.content)) {
+            if (block.type === "toolCall" && block.id) {
+              this._toolCalls.add(block.id);
+            }
           }
         }
-      }
-      if (message.role === "toolResult" && typeof message.toolCallId === "string") {
-        toolResults.set(message.toolCallId, message as ToolResultMessage);
+        if (message.role === "toolResult" && typeof message.toolCallId === "string") {
+          this._toolResults.set(message.toolCallId, message as ToolResultMessage);
+        }
       }
     }
-
-    const visible = this.messages.filter((message) => {
-      if (message.role === "artifact") return false;
-
-      if (
-        message.role === "custom" &&
-        Object.prototype.hasOwnProperty.call(message, "display") &&
-        message.display === false
-      ) {
-        return false;
-      }
-
-      if (
-        message.role === "toolResult" &&
-        typeof message.toolCallId === "string" &&
-        toolCalls.has(message.toolCallId)
-      ) {
-        return false;
-      }
-
-      return true;
-    });
+    const toolResults = this._toolResults;
 
     return html`
       <div class="ml-list">
-        ${visible.map((message, index) => {
-          const prev = index > 0 ? visible[index - 1] : null;
-          return this.renderMessage(message, toolResults, index, prev);
-        })}
+        ${repeat(
+          this.messages,
+          (message) => this.stableKey(message),
+          (message, index) => {
+            const prev = index > 0 ? this.messages[index - 1] : null;
+            return this.renderMessage(message, toolResults, index, prev);
+          },
+        )}
       </div>
     `;
   }
@@ -217,6 +209,15 @@ export class MessageList extends LitElement {
       currDate.getMonth() !== prevDate.getMonth() ||
       currDate.getFullYear() !== prevDate.getFullYear()
     );
+  }
+
+  private stableKey(message: AgentMessageData): string {
+    if (message.id) return `id-${message.id}`;
+    const explicit = (message as Record<string, unknown>)._targetId;
+    if (typeof explicit === "string" && explicit.trim()) return explicit;
+    const streamId = (message as Record<string, unknown>)._streamingId;
+    if (typeof streamId === "string") return streamId;
+    return `ts-${message.timestamp}-${message.role}`;
   }
 
   private targetId(message: AgentMessageData, renderIndex: number): string {
@@ -515,6 +516,13 @@ export class MessageList extends LitElement {
     const name = block.name || "tool";
 
     const pending = id ? this.pendingToolCalls.has(id) : false;
+
+    if (id && result && !pending) {
+      const resultText = this.getToolResultText(result);
+      const cacheKey = `${id}\0${resultText.length}\0${result.isError}`;
+      const cached = this.toolCallHtmlCache.get(cacheKey);
+      if (cached) return cached;
+    }
     const statusClass = result
       ? result.isError
         ? "error"
@@ -706,7 +714,7 @@ export class MessageList extends LitElement {
     }
 
     const openAttr = this.expandToolOutputs ? " open" : "";
-    return `<details class="tool-execution ${statusClass} tool-call-details"${openAttr}>
+    const html = `<details class="tool-execution ${statusClass} tool-call-details"${openAttr}>
       <summary class="tool-call-summary">
         <span class="tool-call-summary-main">
           <span class="tool-name">${escapeHtml(name)}</span>
@@ -718,6 +726,13 @@ export class MessageList extends LitElement {
       </summary>
       <div class="tool-call-body">${body}</div>
     </details>`;
+
+    if (id && result && !pending) {
+      const resultText = this.getToolResultText(result);
+      const cacheKey = `${id}\0${resultText.length}\0${result.isError}`;
+      this.toolCallHtmlCache.set(cacheKey, html);
+    }
+    return html;
   }
 
   private renderDiff(diff: string): string {

@@ -15,7 +15,7 @@ import type {
 
 type PendingCommand =
   | { kind: "get_state" }
-  | { kind: "get_messages" }
+  | { kind: "get_state_with_messages"; stateData: Record<string, unknown> }
   | { kind: "get_available_models" }
   | { kind: "get_commands" }
   | { kind: "set_model" }
@@ -380,7 +380,17 @@ function handlePendingRpcResponse(
 ): boolean {
   switch (pending.kind) {
     case "get_state": {
-      const model = data?.model as
+      const messageId = rpc.send({ type: "get_messages" });
+      pendingCommands.set(messageId, {
+        kind: "get_state_with_messages",
+        stateData: data || {},
+      });
+      return true;
+    }
+
+    case "get_state_with_messages": {
+      const sd = pending.stateData;
+      const model = sd.model as
         | {
             provider?: string;
             modelId?: string;
@@ -391,72 +401,73 @@ function handlePendingRpcResponse(
         | null
         | undefined;
 
-      sendJson(ws, {
-        type: "state",
-        model: model
-          ? {
-              provider: model.provider || "",
-              id: model.modelId || model.id || "",
-              contextWindow:
-                typeof model.contextWindow === "number"
-                  ? model.contextWindow
-                  : undefined,
-              maxTokens:
-                typeof model.maxTokens === "number"
-                  ? model.maxTokens
-                  : undefined,
-            }
-          : null,
-        thinkingLevel: (data?.thinkingLevel as string) || "off",
-        steeringMode:
-          data?.steeringMode === "all" ||
-          data?.steeringMode === "one-at-a-time"
-            ? data.steeringMode
+      const liveMessages = (data?.messages as AgentMessageData[]) || [];
+      sessions.getHistory(sessionId).then((history) => {
+        const merged = mergeMessages(history, liveMessages);
+        sendJson(ws, {
+          type: "state",
+          model: model
+            ? {
+                provider: model.provider || "",
+                id: model.modelId || model.id || "",
+                contextWindow:
+                  typeof model.contextWindow === "number"
+                    ? model.contextWindow
+                    : undefined,
+                maxTokens:
+                  typeof model.maxTokens === "number"
+                    ? model.maxTokens
+                    : undefined,
+              }
+            : null,
+          thinkingLevel: (sd.thinkingLevel as string) || "off",
+          steeringMode:
+            sd.steeringMode === "all" ||
+            sd.steeringMode === "one-at-a-time"
+              ? sd.steeringMode
+              : undefined,
+          followUpMode:
+            sd.followUpMode === "all" ||
+            sd.followUpMode === "one-at-a-time"
+              ? sd.followUpMode
+              : undefined,
+          sessionName:
+            typeof sd.sessionName === "string"
+              ? sd.sessionName
+              : undefined,
+          isStreaming: (sd.isStreaming as boolean) || false,
+          autoCompactionEnabled: sd.autoCompactionEnabled === true,
+          messages: merged,
+          messageStats:
+            sd.messageStats && typeof sd.messageStats === "object"
+              ? (sd.messageStats as SessionMessageStats)
+              : undefined,
+          pendingMessageCount:
+            typeof sd.pendingMessageCount === "number"
+              ? (sd.pendingMessageCount as number)
+              : undefined,
+          systemPrompt:
+            typeof sd.systemPrompt === "string"
+              ? (sd.systemPrompt as string)
+              : undefined,
+          tools: Array.isArray(sd.tools)
+            ? (sd.tools as Array<Record<string, unknown>>).map((tool) => ({
+                name: (tool.name as string) || "tool",
+                description: (tool.description as string) || "",
+                parameters:
+                  tool.parameters && typeof tool.parameters === "object"
+                    ? (tool.parameters as {
+                        properties?: Record<
+                          string,
+                          { type?: string; description?: string }
+                        >;
+                        required?: string[];
+                      })
+                    : undefined,
+              }))
             : undefined,
-        followUpMode:
-          data?.followUpMode === "all" ||
-          data?.followUpMode === "one-at-a-time"
-            ? data.followUpMode
-            : undefined,
-        sessionName:
-          typeof data?.sessionName === "string"
-            ? data.sessionName
-            : undefined,
-        isStreaming: (data?.isStreaming as boolean) || false,
-        autoCompactionEnabled: data?.autoCompactionEnabled === true,
-        messages: [],
-        messageStats:
-          data?.messageStats && typeof data.messageStats === "object"
-            ? (data.messageStats as SessionMessageStats)
-            : undefined,
-        pendingMessageCount:
-          typeof data?.pendingMessageCount === "number"
-            ? (data.pendingMessageCount as number)
-            : undefined,
-        systemPrompt:
-          typeof data?.systemPrompt === "string"
-            ? (data.systemPrompt as string)
-            : undefined,
-        tools: Array.isArray(data?.tools)
-          ? (data.tools as Array<Record<string, unknown>>).map((tool) => ({
-              name: (tool.name as string) || "tool",
-              description: (tool.description as string) || "",
-              parameters:
-                tool.parameters && typeof tool.parameters === "object"
-                  ? (tool.parameters as {
-                      properties?: Record<
-                        string,
-                        { type?: string; description?: string }
-                      >;
-                      required?: string[];
-                    })
-                  : undefined,
-            }))
-          : undefined,
+        });
       });
-
-      const messageId = rpc.send({ type: "get_messages" });
-      pendingCommands.set(messageId, { kind: "get_messages" });
       return true;
     }
 
@@ -534,24 +545,6 @@ function handlePendingRpcResponse(
         const refreshId = rpc.send({ type: "get_state" });
         pendingCommands.set(refreshId, { kind: "get_state" });
       }
-      return true;
-    }
-
-    case "get_messages": {
-      const liveMessages = (data?.messages as AgentMessageData[]) || [];
-      sessions.getHistory(sessionId).then((history) => {
-        const merged = mergeMessages(history, liveMessages);
-        sendJson(ws, {
-          type: "agent_event",
-          event: {
-            type: "response",
-            id: event.id, // Echo the original request ID
-            command: "get_messages",
-            success: true,
-            data: { messages: merged },
-          } as RpcEvent,
-        });
-      });
       return true;
     }
 

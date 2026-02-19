@@ -56,10 +56,22 @@ function configureMarked() {
   markedConfigured = true;
 }
 
+const markdownCache = new Map<string, string>();
+const MARKDOWN_CACHE_MAX = 500;
+
 export function safeMarkedParse(text: string): string {
+  const cached = markdownCache.get(text);
+  if (cached !== undefined) return cached;
+
   configureMarked();
   const rendered = marked.parse(text || "");
-  return typeof rendered === "string" ? rendered : "";
+  const result = typeof rendered === "string" ? rendered : "";
+
+  if (markdownCache.size >= MARKDOWN_CACHE_MAX) {
+    markdownCache.delete(markdownCache.keys().next().value!);
+  }
+  markdownCache.set(text, result);
+  return result;
 }
 
 export function replaceTabs(text: string): string {
@@ -113,7 +125,28 @@ export function getLanguageFromPath(filePath: string): string | undefined {
   return extToLang[ext];
 }
 
+const expandableCache = new Map<string, string>();
+const EXPANDABLE_CACHE_MAX = 500;
+
 export function formatExpandableOutput(
+  text: string,
+  maxLines: number,
+  lang?: string,
+): string {
+  const cacheKey = `${text}\0${maxLines}\0${lang || ""}`;
+  const cached = expandableCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const result = formatExpandableOutputInner(text, maxLines, lang);
+
+  if (expandableCache.size >= EXPANDABLE_CACHE_MAX) {
+    expandableCache.delete(expandableCache.keys().next().value!);
+  }
+  expandableCache.set(cacheKey, result);
+  return result;
+}
+
+function formatExpandableOutputInner(
   text: string,
   maxLines: number,
   lang?: string,
