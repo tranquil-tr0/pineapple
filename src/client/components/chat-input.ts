@@ -465,20 +465,18 @@ export class ChatInput extends LitElement {
                   &#9632;
                 </button>
               `
-            : html`
-                <button
-                  class="send-btn send"
-                  @click=${this.onSend}
-                  ?disabled=${
-                    this.disabled ||
-                    this.processingPaste ||
-                    (!this.text.trim() && this.pastedImages.length === 0)
-                  }
-                  title="Send"
-                >
-                  &#9654;
-                </button>
-              `}
+            : this.text.trim() || this.pastedImages.length > 0
+              ? html`
+                  <button
+                    class="send-btn send"
+                    @click=${this.onSend}
+                    ?disabled=${this.disabled || this.processingPaste}
+                    title="Send"
+                  >
+                    &#9654;
+                  </button>
+                `
+              : nothing}
         </div>
       </div>
     `;
