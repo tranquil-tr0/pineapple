@@ -182,11 +182,20 @@ export class ChatView extends LitElement {
         if (this.shouldAutoScroll) {
           this.scheduleScroll();
         }
+        // Auto-focus input only for new sessions (no user/assistant messages)
+        if (!this.initialFocusHandled) {
+          this.initialFocusHandled = true;
+          const hasUserOrAssistant = state.baseMessages.some(
+            (m) => m.role === "user" || m.role === "user-with-attachments" || m.role === "assistant"
+          );
+          if (!hasUserOrAssistant) {
+            this.focusChatInput();
+          }
+        }
       },
     );
     this.runtime.connect();
     this.loadSessionName();
-    this.focusChatInput();
   }
 
   private resetSessionState() {
@@ -199,6 +208,7 @@ export class ChatView extends LitElement {
     this.sessionLastActivityAt = "";
     this.hostCwd = "";
     this.persistedMessageStats = emptyMessageStats();
+    this.initialFocusHandled = false;
   }
 
   private syncExtensionUiState() {
