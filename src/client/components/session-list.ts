@@ -121,6 +121,16 @@ export class SessionList extends LitElement {
       opacity: 0.5;
     }
 
+    .archive-section-header {
+      padding: 20px 20px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
     .session-item:hover {
       background: var(--surface);
     }
@@ -589,18 +599,37 @@ export class SessionList extends LitElement {
     return 3;
   }
 
-  private renderGroupedSessions() {
+  private renderGroupedList(sessions: SessionMeta[]) {
     const items: unknown[] = [];
-    let lastGroup = -1;
-    for (const s of this.sessions) {
+    const grouped = new Map<number, SessionMeta[]>();
+    for (const s of sessions) {
       const group = this.getTimeGroup(s.lastActivityAt);
-      if (lastGroup !== -1 && group !== lastGroup) {
-        items.push(html`<div class="group-spacer"></div>`);
+      if (!grouped.has(group)) grouped.set(group, []);
+      grouped.get(group)!.push(s);
+    }
+    let first = true;
+    for (const group of [...grouped.keys()].sort((a, b) => a - b)) {
+      if (!first) items.push(html`<div class="group-spacer"></div>`);
+      first = false;
+      for (const s of grouped.get(group)!) {
+        items.push(this.renderSession(s));
       }
-      lastGroup = group;
-      items.push(this.renderSession(s));
     }
     return items;
+  }
+
+  private renderGroupedSessions() {
+    const active = this.sessions.filter((s) => !isArchivedSessionName(s.name));
+    const archived = this.sessions.filter((s) => isArchivedSessionName(s.name));
+    return html`
+      ${this.renderGroupedList(active)}
+      ${archived.length > 0
+        ? html`
+            <div class="archive-section-header">Archive</div>
+            ${this.renderGroupedList(archived)}
+          `
+        : nothing}
+    `;
   }
 
   private renderSession(s: SessionMeta) {
