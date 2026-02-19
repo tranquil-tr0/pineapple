@@ -615,7 +615,6 @@ export class ChatView extends LitElement {
               thinkingLevel: rs?.currentThinkingLevel || "off",
               stats,
               persistedMessageStats: this.persistedMessageStats,
-              pendingMessageCount: rs?.pendingMessageCount || 0,
               usage: usageTotals,
               currentContextWindow: rs?.currentContextWindow || null,
               contextMessageCount: renderableMessages.length,

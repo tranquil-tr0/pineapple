@@ -19,7 +19,6 @@ interface RenderSessionInfoStackOptions {
   thinkingLevel: string;
   stats: SessionInfoStats;
   persistedMessageStats: SessionMessageStats;
-  pendingMessageCount: number;
   usage: UsageTotals;
   currentContextWindow: number | null;
   contextMessageCount: number;
@@ -69,7 +68,6 @@ export function renderSessionInfoStack({
   thinkingLevel,
   stats,
   persistedMessageStats,
-  pendingMessageCount,
   usage,
   currentContextWindow,
   contextMessageCount,

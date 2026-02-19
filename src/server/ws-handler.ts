@@ -413,14 +413,7 @@ function handlePendingRpcResponse(
         messageStats:
           data?.messageStats && typeof data.messageStats === "object"
             ? (data.messageStats as SessionMessageStats)
-            : typeof data?.messageCount === "number"
-              ? {
-                  userMessages: 0,
-                  assistantMessages: 0,
-                  toolCalls: 0,
-                  totalMessages: data.messageCount as number,
-                }
-              : undefined,
+            : undefined,
         pendingMessageCount:
           typeof data?.pendingMessageCount === "number"
             ? (data.pendingMessageCount as number)

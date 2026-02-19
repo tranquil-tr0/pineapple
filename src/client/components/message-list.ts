@@ -161,8 +161,8 @@ export class MessageList extends LitElement {
     renderIndex: number,
     previousMessage: AgentMessageData | null,
   ): TemplateResult | typeof nothing {
-    const currentTs = message.timestamp;
-    const prevTs = previousMessage?.timestamp;
+    const currentTs = message.timestamp as number;
+    const prevTs = previousMessage?.timestamp as number | undefined;
     const showTimestamp = this.shouldShowTimestamp(currentTs, prevTs);
 
     const tsHtml = showTimestamp
