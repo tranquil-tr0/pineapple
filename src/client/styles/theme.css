@@ -277,6 +277,10 @@ chat-view {
   overflow: hidden;
 }
 
+session-sidebar {
+  display: contents;
+}
+
 .cv-sidebar {
   border-right: 1px solid var(--dim);
   background: var(--surface);
