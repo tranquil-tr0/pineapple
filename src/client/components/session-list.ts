@@ -620,7 +620,7 @@ export class SessionList extends LitElement {
     );
 
     const metaParts = [
-      `${s.messageCount} msg`,
+      `${s.messageStats?.totalMessages ?? 0} msg`,
       s.model || "unknown model",
       relativeTime(s.lastActivityAt),
     ];
