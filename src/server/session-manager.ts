@@ -532,6 +532,13 @@ export class SessionManager {
           model = parsedLine.details.modelId;
         }
 
+        if (
+          parsedLine.type === "model_change" &&
+          parsedLine.modelId
+        ) {
+          model = parsedLine.modelId;
+        }
+
         if (parsedLine.type === "session_info" && parsedLine.name) {
           name = parsedLine.name;
         } else if (parsedLine.type === "message") {
