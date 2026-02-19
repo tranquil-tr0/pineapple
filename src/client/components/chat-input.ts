@@ -435,9 +435,7 @@ export class ChatInput extends LitElement {
             : nothing}
 
           <textarea
-            placeholder=${this.disabled
-              ? "No model available"
-              : "Type a message… (!cmd, !!cmd, /command)"}
+            placeholder=${this.disabled ? "No model available" : "Prompt…"}
             rows="1"
             .value=${this.text}
             ?disabled=${this.disabled}
