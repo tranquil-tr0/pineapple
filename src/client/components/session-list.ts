@@ -94,6 +94,7 @@ export class SessionList extends LitElement {
     .session-item {
       display: flex;
       align-items: center;
+      gap: 8px;
       padding: 8px 12px 8px 20px;
       border-bottom: 0px solid transparent;
       cursor: pointer;
@@ -496,10 +497,13 @@ export class SessionList extends LitElement {
     }
   }
 
-  private async openProjectPicker() {
-    this.projects = await fetchProjects();
+  private openProjectPicker() {
+    this.projects = [];
     this.cwdInput = "";
     this.showProjectPicker = true;
+    fetchProjects().then((projects) => {
+      if (this.showProjectPicker) this.projects = projects;
+    });
   }
 
   private closeProjectPicker() {
@@ -663,7 +667,7 @@ export class SessionList extends LitElement {
   render() {
     return html`
       <header>
-        <h1>Pi Web UI</h1>
+        <h1>🍕</h1>
         <button class="new-btn" @click=${this.openProjectPicker}>
           <span class="plus">+</span>
           <span>New</span>
@@ -786,11 +790,11 @@ export class SessionList extends LitElement {
     );
 
     const metaParts = [
+      relativeTime(s.lastActivityAt),
+      ...(s.cwd ? [s.cwd] : []),
       `${s.messageStats?.totalMessages ?? 0} msg`,
       s.model || "unknown model",
-      relativeTime(s.lastActivityAt),
     ];
-    if (s.cwd) metaParts.push(s.cwd);
 
     return html`
       <a
@@ -819,14 +823,6 @@ export class SessionList extends LitElement {
                   ${archived
                     ? html`<span class="session-archived-badge">Archived</span>`
                     : nothing}
-                  ${s.activity?.isWorking
-                    ? html`<div class="session-status-spinner" title="Agent working"></div>`
-                    : nothing}
-                  ${s.activity?.attached
-                    ? html`<span class="session-status-icon active" title="Active user">●</span>`
-                    : s.activity?.activeHere
-                      ? html`<span class="session-status-icon idle" title="Process running">●</span>`
-                      : nothing}
                   ${activity
                     ? html`
                         <span class="session-activity-badge ${activity.className}">
@@ -840,6 +836,14 @@ export class SessionList extends LitElement {
             ${metaParts.join(" · ")}
           </div>
         </div>
+        ${s.activity?.isWorking
+          ? html`<div class="session-status-spinner" title="Agent working"></div>`
+          : nothing}
+        ${s.activity?.attached
+          ? html`<span class="session-status-icon active" title="Active user">●</span>`
+          : s.activity?.activeHere
+            ? html`<span class="session-status-icon idle" title="Process running">●</span>`
+            : nothing}
         <button
           class="session-menu-btn"
           title="Session actions"
