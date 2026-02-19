@@ -398,12 +398,79 @@ export class SessionList extends LitElement {
     .project-cwd-go:hover {
       background: var(--surface-alt);
     }
+
+    .projects-section {
+      flex-shrink: 0;
+      border-top: 1px solid var(--borderMuted);
+      padding: 8px 0 4px;
+    }
+
+    .projects-section-header {
+      padding: 4px 20px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    .project-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px 4px 20px;
+    }
+
+    .project-row-path {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-row-count {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+
+    .project-row-new {
+      flex-shrink: 0;
+      padding: 2px 8px;
+      border: 1px solid var(--borderMuted);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .project-row-new:hover {
+      background: var(--surface-alt);
+      color: var(--text-primary);
+    }
+
+    .projects-empty {
+      padding: 6px 20px 8px;
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0.6;
+    }
   `;
 
   connectedCallback() {
     super.connectedCallback();
     this.loadSessions();
     this.connectSSE();
+    fetchProjects().then((projects) => {
+      this.projects = projects;
+    });
   }
 
   disconnectedCallback() {
@@ -453,11 +520,10 @@ export class SessionList extends LitElement {
   }
 
   private openProjectPicker() {
-    this.projects = [];
     this.cwdInput = "";
     this.showProjectPicker = true;
     fetchProjects().then((projects) => {
-      if (this.showProjectPicker) this.projects = projects;
+      this.projects = projects;
     });
   }
 
@@ -544,6 +610,21 @@ export class SessionList extends LitElement {
                 ${this.renderGroupedSessions()}
               </div>
             `}
+
+      <div class="projects-section">
+        <div class="projects-section-header">Projects</div>
+        ${this.projects.length === 0
+          ? html`<div class="projects-empty">No projects found. Use pi in a project directory first.</div>`
+          : this.projects.map(
+              (p) => html`
+                <div class="project-row">
+                  <div class="project-row-path">${p.displayPath}</div>
+                  <div class="project-row-count">${p.sessionCount} session${p.sessionCount === 1 ? "" : "s"}</div>
+                  <button class="project-row-new" @click=${() => this.createSessionWithCwd(p.cwd)}>New</button>
+                </div>
+              `,
+            )}
+      </div>
 
       ${this.showProjectPicker
         ? html`
