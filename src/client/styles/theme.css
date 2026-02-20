@@ -919,8 +919,22 @@ chat-view {
   position: relative;
 }
 
-.custom-message {
+.custom-message,
+.model-change-message,
+.thinking-change-message,
+.session-info-message {
   padding: 12px 14px;
+}
+
+.model-change-message,
+.thinking-change-message,
+.session-info-message {
+  background: var(--customMessageBg);
+  color: var(--customMessageText);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .custom-message-label {
@@ -929,13 +943,35 @@ chat-view {
   margin-bottom: 6px;
 }
 
+.model-change-message .custom-message-label,
+.thinking-change-message .custom-message-label,
+.session-info-message .custom-message-label {
+  margin-bottom: 0;
+}
+
+.model-change-text,
+.thinking-change-text,
+.session-info-text {
+  color: var(--customMessageText);
+}
+
 .custom-message-empty {
   color: var(--muted);
   font-style: italic;
 }
 
-.custom-message.note-warning {
+.custom-message.note-warning,
+.model-change-message.note-warning,
+.thinking-change-message.note-warning,
+.session-info-message.note-warning {
   border-color: var(--warning);
+}
+
+.custom-message.note-error,
+.model-change-message.note-error,
+.thinking-change-message.note-error,
+.session-info-message.note-error {
+  border-color: var(--error);
 }
 
 .custom-message.note-error {
