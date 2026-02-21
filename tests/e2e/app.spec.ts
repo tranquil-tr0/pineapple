@@ -307,6 +307,85 @@ test.describe("Chat View", () => {
     await expect.poll(() => promptSent, { timeout: 4000 }).toBe(true);
   });
 
+  test("keeps fetched session name when WS state omits sessionName", async ({
+    page,
+  }) => {
+    await page.route("**/api/sessions", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessions: [
+            {
+              id: sessionId,
+              name: "HTTP title",
+              createdAt: new Date(0).toISOString(),
+              lastActivityAt: new Date(0).toISOString(),
+              messageCount: 0,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.routeWebSocket(new RegExp(`/api/sessions/${sessionId}/ws`), (ws) => {
+      const sendMockState = () => {
+        ws.send(
+          JSON.stringify({
+            type: "state",
+            model: {
+              provider: "test",
+              id: "mock-model",
+            },
+            thinkingLevel: "off",
+            isStreaming: false,
+            messages: [],
+            messageCount: 0,
+            pendingMessageCount: 0,
+            systemPrompt: "",
+            tools: [],
+          }),
+        );
+      };
+
+      sendMockState();
+      setTimeout(sendMockState, 120);
+      setTimeout(sendMockState, 320);
+
+      ws.onMessage((rawMessage) => {
+        const parsed = JSON.parse(rawMessage.toString()) as {
+          type?: string;
+        };
+
+        if (parsed.type === "get_available_models") {
+          ws.send(
+            JSON.stringify({
+              type: "available_models",
+              models: [
+                {
+                  provider: "test",
+                  id: "mock-model",
+                  label: "Mock Model",
+                },
+              ],
+            }),
+          );
+          return;
+        }
+
+        if (parsed.type === "get_commands") {
+          ws.send(JSON.stringify({ type: "available_commands", commands: [] }));
+        }
+      });
+    });
+
+    await openSession(page, sessionId);
+    const title = page.locator("chat-view .cv-title");
+    await expect(title).toContainText("HTTP title");
+    await page.waitForTimeout(500);
+    await expect(title).toContainText("HTTP title");
+  });
+
   test("has a text input and send button", async ({ page }) => {
     await openSession(page, sessionId);
     await expect(page.locator("chat-input textarea")).toBeVisible();

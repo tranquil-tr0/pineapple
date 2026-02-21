@@ -357,21 +357,26 @@ export class ChatView extends LitElement {
   }
 
   private async loadSessionName() {
-    const info = await fetchSessionInfo(this.sessionId);
-    if (info) {
-      this.sessionName = info.name;
-      this.sessionCreatedAt = info.createdAt;
-      this.sessionLastActivityAt = info.lastActivityAt;
-      this.persistedMessageStats = info.messageStats;
-      if (info.cwd) this.hostCwd = info.cwd;
-      this.updateDocumentTitle();
-    }
+    const requestedSessionId = this.sessionId;
+    const info = await fetchSessionInfo(requestedSessionId);
+    if (!info || requestedSessionId !== this.sessionId) return;
+
+    this.sessionName = info.name;
+    this.sessionCreatedAt = info.createdAt;
+    this.sessionLastActivityAt = info.lastActivityAt;
+    this.persistedMessageStats = info.messageStats;
+    if (info.cwd) this.hostCwd = info.cwd;
+
+    // Keep runtime/session callback in sync even when WS state omits sessionName.
+    this.runtime?.optimisticUpdate({ sessionName: info.name });
+    this.updateDocumentTitle();
   }
 
   private async unarchiveSessionIfNeeded() {
     const nextName = await unarchiveSessionIfNeeded(this.sessionId, this.sessionName);
     if (nextName) {
       this.sessionName = nextName;
+      this.runtime?.optimisticUpdate({ sessionName: nextName });
       this.updateDocumentTitle();
     }
   }
@@ -402,6 +407,7 @@ export class ChatView extends LitElement {
     const success = await patchSessionName(this.sessionId, name);
     if (success) {
       this.sessionName = name;
+      this.runtime?.optimisticUpdate({ sessionName: name });
       this.updateDocumentTitle();
     }
   }
