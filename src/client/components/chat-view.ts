@@ -682,7 +682,6 @@ export class ChatView extends LitElement {
     const sidebarEntries = this._cachedSidebarEntries;
     const createdAtLabel = this.formatDateTime(this.sessionCreatedAt);
     const lastActivityAtLabel = this.formatDateTime(this.sessionLastActivityAt);
-    const modelLabel = rs?.currentProvider ? `${rs.currentProvider}/${rs.currentModel}` : (rs?.currentModel || "unknown");
 
     const allMessages = streamingTail.length > 0
       ? [...baseMessages, ...streamingTail]
@@ -740,8 +739,6 @@ export class ChatView extends LitElement {
               editName: this.editName,
               createdAtLabel,
               lastActivityAtLabel,
-              modelLabel,
-              thinkingLevel: rs?.currentThinkingLevel || "off",
               stats,
               persistedMessageStats: this.persistedMessageStats,
               usage: usageTotals,

@@ -15,8 +15,6 @@ interface RenderSessionInfoStackOptions {
   editName: string;
   createdAtLabel: string;
   lastActivityAtLabel: string;
-  modelLabel: string;
-  thinkingLevel: string;
   stats: SessionInfoStats;
   persistedMessageStats: SessionMessageStats;
   usage: UsageTotals;
@@ -40,9 +38,16 @@ function formatCompactCount(value: number): string {
   }).format(Math.max(0, value));
 }
 
+function formatConversationRow(stats: SessionInfoStats): string {
+  const turns = stats.userMessages + stats.assistantMessages;
+  return `${turns} turns (${stats.userMessages} user \u00b7 ${stats.assistantMessages} assistant) \u00b7 ${stats.toolCalls} assistant tool calls`;
+}
+
 function formatHistoryRow(stats: SessionMessageStats, totalTokens: number): string {
-  const tokens = totalTokens > 0 ? ` \u00b7 ${formatCompactCount(totalTokens)} tokens` : "";
-  return `${stats.totalMessages} messages${tokens}`;
+  const tokens = totalTokens > 0
+    ? ` \u00b7 ${formatCompactCount(totalTokens)} cumulative I/O tokens`
+    : "";
+  return `${stats.totalMessages} persisted entries${tokens}`;
 }
 
 function formatContextRow(
@@ -52,9 +57,9 @@ function formatContextRow(
 ): string {
   if (contextWindow && contextWindow > 0 && activeContextTokens !== null) {
     const pct = Math.min(100, Math.max(0, (activeContextTokens / contextWindow) * 100));
-    return `${contextMessageCount} messages \u00b7 ${pct.toFixed(1)}% of ${formatCompactCount(contextWindow)}`;
+    return `${contextMessageCount} renderable entries \u00b7 ${pct.toFixed(1)}% of ${formatCompactCount(contextWindow)}-token window`;
   }
-  return `${contextMessageCount} messages`;
+  return `${contextMessageCount} renderable entries`;
 }
 
 export function renderSessionInfoStack({
@@ -64,8 +69,6 @@ export function renderSessionInfoStack({
   editName,
   createdAtLabel,
   lastActivityAtLabel,
-  modelLabel,
-  thinkingLevel,
   stats,
   persistedMessageStats,
   usage,
@@ -113,18 +116,16 @@ export function renderSessionInfoStack({
           <div class="cv-info-item"><span>Session</span><strong>${sessionId}</strong></div>
           <div class="cv-info-item"><span>Created</span><strong>${createdAtLabel}</strong></div>
           <div class="cv-info-item"><span>Last Activity</span><strong>${lastActivityAtLabel}</strong></div>
-          <div class="cv-info-item"><span>Model</span><strong>${modelLabel}</strong></div>
-          <div class="cv-info-item"><span>Thinking</span><strong>${thinkingLevel}</strong></div>
           <div class="cv-info-item">
-            <span>Messages</span>
-            <strong>${stats.userMessages} user &middot; ${stats.assistantMessages} assistant &middot; ${stats.toolCalls} tool calls</strong>
+            <span>Conversation</span>
+            <strong>${formatConversationRow(stats)}</strong>
           </div>
           <div class="cv-info-item">
-            <span>History</span>
+            <span>Persisted log</span>
             <strong>${formatHistoryRow(persistedMessageStats, usage.input + usage.output)}</strong>
           </div>
           <div class="cv-info-item">
-            <span>Context</span>
+            <span>Active context</span>
             <strong>${formatContextRow(contextMessageCount, usage.activeContextTokens, currentContextWindow)}</strong>
           </div>
         </div>
