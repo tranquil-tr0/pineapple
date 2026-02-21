@@ -95,6 +95,8 @@ export class ChatView extends LitElement {
   @state() private extensionUiInput = "";
   @state() private extensionStatuses: ExtensionStatusEntry[] = [];
   @state() private extensionWidgets: ExtensionWidgetEntry[] = [];
+  @state() private canScrollToTop = false;
+  @state() private canScrollToBottom = false;
 
   private extensionUiState = new ExtensionUiState();
   private runtime: SessionRuntime | null = null;
@@ -102,6 +104,7 @@ export class ChatView extends LitElement {
   private shouldAutoScroll = true;
   private pendingDeepLinkTarget = "";
   private initialFocusHandled = false;
+  private scrollAffordanceFrame = 0;
 
   private _lastBaseMessages: AgentMessageData[] | null = null;
   private _cachedRenderable: AgentMessageData[] = [];
@@ -120,12 +123,18 @@ export class ChatView extends LitElement {
     this.pendingDeepLinkTarget = this.targetMessageId || "";
     this.bootstrapSessionRuntime();
     window.addEventListener("keydown", this.onKeydown);
+    window.addEventListener("resize", this.onViewportResize);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.cleanup();
     window.removeEventListener("keydown", this.onKeydown);
+    window.removeEventListener("resize", this.onViewportResize);
+    if (this.scrollAffordanceFrame) {
+      cancelAnimationFrame(this.scrollAffordanceFrame);
+      this.scrollAffordanceFrame = 0;
+    }
   }
 
   updated(changed: Map<string, unknown>) {
@@ -148,6 +157,7 @@ export class ChatView extends LitElement {
     if (!this.scrollContainer) {
       this.scrollContainer = this.querySelector(".cv-messages");
       this.scrollContainer?.addEventListener("scroll", this.onScroll);
+      this.scheduleScrollAffordanceUpdate();
     }
 
     const allMessages = this.runtimeState
@@ -156,6 +166,8 @@ export class ChatView extends LitElement {
     if (this.pendingDeepLinkTarget && allMessages.length) {
       this.tryApplyDeepLinkTarget(this.pendingDeepLinkTarget);
     }
+
+    this.scheduleScrollAffordanceUpdate();
   }
 
   private cleanup() {
@@ -165,6 +177,12 @@ export class ChatView extends LitElement {
     }
     this.scrollContainer?.removeEventListener("scroll", this.onScroll);
     this.scrollContainer = null;
+    this.canScrollToTop = false;
+    this.canScrollToBottom = false;
+    if (this.scrollAffordanceFrame) {
+      cancelAnimationFrame(this.scrollAffordanceFrame);
+      this.scrollAffordanceFrame = 0;
+    }
   }
 
   private bootstrapSessionRuntime() {
@@ -402,15 +420,62 @@ export class ChatView extends LitElement {
     if (!el) return;
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     this.shouldAutoScroll = distFromBottom < 80;
+    this.updateScrollAffordances();
   };
+
+  private onViewportResize = () => {
+    this.scheduleScrollAffordanceUpdate();
+  };
+
+  private scheduleScrollAffordanceUpdate() {
+    if (this.scrollAffordanceFrame) return;
+    this.scrollAffordanceFrame = requestAnimationFrame(() => {
+      this.scrollAffordanceFrame = 0;
+      this.updateScrollAffordances();
+    });
+  }
+
+  private updateScrollAffordances() {
+    const el = this.scrollContainer;
+    if (!el) {
+      if (this.canScrollToTop) this.canScrollToTop = false;
+      if (this.canScrollToBottom) this.canScrollToBottom = false;
+      return;
+    }
+
+    const maxScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+    const minDistance = 80;
+    const canTop = maxScrollTop > 0 && el.scrollTop > minDistance;
+    const canBottom = maxScrollTop > 0 && maxScrollTop - el.scrollTop > minDistance;
+
+    if (canTop !== this.canScrollToTop) this.canScrollToTop = canTop;
+    if (canBottom !== this.canScrollToBottom) this.canScrollToBottom = canBottom;
+  }
 
   private scheduleScroll() {
     if (!this.shouldAutoScroll) return;
     requestAnimationFrame(() => {
       if (this.scrollContainer) {
         this.scrollContainer.scrollTop = this.scrollContainer.scrollHeight;
+        this.updateScrollAffordances();
       }
     });
+  }
+
+  private scrollToTop() {
+    const el = this.scrollContainer;
+    if (!el) return;
+    this.shouldAutoScroll = false;
+    el.scrollTo({ top: 0, behavior: "smooth" });
+    this.scheduleScrollAffordanceUpdate();
+  }
+
+  private scrollToBottom() {
+    const el = this.scrollContainer;
+    if (!el) return;
+    this.shouldAutoScroll = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    this.scheduleScrollAffordanceUpdate();
   }
 
   private scrollToMessage(targetId: string, smooth = true) {
@@ -424,6 +489,7 @@ export class ChatView extends LitElement {
       block: "center",
     });
 
+    this.scheduleScrollAffordanceUpdate();
     target.classList.add("highlight");
     setTimeout(() => target.classList.remove("highlight"), 2000);
   }
@@ -652,7 +718,21 @@ export class ChatView extends LitElement {
 
         <div class="cv-main-col">
           <a class="cv-back-btn" href="#/" title="Back to session list">&#8592;</a>
-          <div class="cv-messages">
+          ${this.canScrollToTop
+            ? html`
+                <button
+                  class="cv-scroll-btn cv-scroll-top-btn"
+                  title="Scroll to top"
+                  aria-label="Scroll to top"
+                  @click=${() => this.scrollToTop()}
+                >
+                  &#8593;
+                </button>
+              `
+            : nothing}
+
+          <div class="cv-messages-wrap">
+            <div class="cv-messages">
             ${renderSessionInfoStack({
               sessionId: this.sessionId,
               sessionName: this.sessionName,
@@ -694,7 +774,21 @@ export class ChatView extends LitElement {
                   </div>
                 `
               : nothing}
-            ${rs?.wasInterrupted && !isStreaming ? html`<div class="cv-interrupted">Interrupted</div>` : nothing}
+              ${rs?.wasInterrupted && !isStreaming ? html`<div class="cv-interrupted">Interrupted</div>` : nothing}
+            </div>
+
+            ${this.canScrollToBottom
+              ? html`
+                  <button
+                    class="cv-scroll-btn cv-scroll-bottom-btn"
+                    title="Scroll to latest"
+                    aria-label="Scroll to latest"
+                    @click=${() => this.scrollToBottom()}
+                  >
+                    &#8595;
+                  </button>
+                `
+              : nothing}
           </div>
 
           ${renderAboveEditorWidgets(this.extensionWidgets)}

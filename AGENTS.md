@@ -83,3 +83,5 @@ src/client/utils/
 tests/api/             Vitest unit tests for sessions, input routing, project registry, message merging.
 tests/e2e/             Playwright E2E tests for full application workflows.
 ```
+
+**Important:** Never use `pkill -f "vite dev"` or similar blanket kill commands. There may be other services running that should not be interrupted. Only stop the specific process you started.

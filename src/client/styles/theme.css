@@ -204,11 +204,8 @@ chat-view {
   background: var(--surface-alt);
 }
 
-.cv-back-btn {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
+.cv-back-btn,
+.cv-scroll-btn {
   width: 32px;
   height: 32px;
   display: inline-flex;
@@ -226,7 +223,34 @@ chat-view {
   transition: opacity 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.cv-back-btn:hover {
+.cv-back-btn,
+.cv-scroll-top-btn {
+  position: absolute;
+  top: 8px;
+  z-index: 10;
+}
+
+.cv-back-btn {
+  left: 8px;
+}
+
+.cv-scroll-top-btn {
+  left: 46px;
+}
+
+.cv-scroll-bottom-btn {
+  position: absolute;
+  left: 8px;
+  bottom: 10px;
+  z-index: 20;
+}
+
+.cv-scroll-btn {
+  display: none;
+}
+
+.cv-back-btn:hover,
+.cv-scroll-btn:hover {
   opacity: 1;
   border-color: var(--border);
   background: var(--surface-alt);
@@ -845,9 +869,17 @@ session-sidebar {
   color: var(--body-bg);
 }
 
-.cv-messages {
+.cv-messages-wrap {
+  position: relative;
   flex: 1;
   width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cv-messages {
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
@@ -1566,6 +1598,10 @@ session-sidebar {
 
   .cv-sidebar {
     display: none;
+  }
+
+  .cv-scroll-btn {
+    display: inline-flex;
   }
 
   .cv-messages {
