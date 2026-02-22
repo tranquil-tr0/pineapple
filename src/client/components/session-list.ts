@@ -622,6 +622,8 @@ export class SessionList extends LitElement {
   // ---- Render ----
 
   render() {
+    const projectsBySessionCount = this.getProjectsBySessionCountDesc();
+
     return html`
       <header>
         <h1>🍕</h1>
@@ -651,9 +653,9 @@ export class SessionList extends LitElement {
 
       <div class="projects-section">
         <div class="projects-section-header">Projects</div>
-        ${this.projects.length === 0
+        ${projectsBySessionCount.length === 0
           ? html`<div class="projects-empty">No projects found. Use pi in a project directory first.</div>`
-          : this.projects.map(
+          : projectsBySessionCount.map(
               (p) => html`
                 <div class="project-row">
                   <div class="project-row-path">${p.displayPath}</div>
@@ -707,6 +709,16 @@ export class SessionList extends LitElement {
           `
         : nothing}
     `;
+  }
+
+  private getProjectsBySessionCountDesc(): ProjectInfo[] {
+    return [...this.projects].sort((a, b) => {
+      if (b.sessionCount !== a.sessionCount) {
+        return b.sessionCount - a.sessionCount;
+      }
+
+      return b.lastActivityAt.localeCompare(a.lastActivityAt);
+    });
   }
 
   private getTimeGroup(iso: string): number {
