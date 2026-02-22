@@ -801,6 +801,7 @@ export class ChatView extends LitElement {
             .disabled=${(rs?.models.length || 0) > 0 && !rs?.currentModel}
             .commands=${rs?.commands || []}
             .commandsLoading=${rs?.commandsLoading || false}
+            .showContinueButton=${!isAgentWorking && !isStreaming}
             @send=${this.onSend}
             @steer=${this.onSteer}
             @follow-up=${this.onFollowUp}

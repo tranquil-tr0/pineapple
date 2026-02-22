@@ -16,6 +16,7 @@ export class ChatInput extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Array }) commands: SlashCommandSpec[] = [];
   @property({ type: Boolean }) commandsLoading = false;
+  @property({ type: Boolean }) showContinueButton = false;
 
   @state() private text = "";
   @state() private selectedCommandIndex = 0;
@@ -61,7 +62,11 @@ export class ChatInput extends LitElement {
       width: 100%;
       min-width: 0;
       padding: 10px 14px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      padding-bottom: max(
+        10px,
+        env(safe-area-inset-bottom),
+        env(keyboard-inset-height, 0px)
+      );
       position: relative;
     }
 
@@ -163,8 +168,10 @@ export class ChatInput extends LitElement {
       }
 
       textarea:focus {
-        min-height: 50vh;
-        max-height: 50vh;
+        min-height: 96px;
+        max-height: 220px;
+        min-height: min(32dvh, 140px);
+        max-height: min(42dvh, 220px);
       }
     }
 
@@ -210,6 +217,18 @@ export class ChatInput extends LitElement {
     .attach-btn:disabled {
       opacity: 0.35;
       cursor: default;
+    }
+
+    .mobile-actions .attach-btn {
+      display: none;
+    }
+
+    :host(:focus-within) .mobile-actions .attach-btn {
+      display: inline-flex;
+    }
+
+    .input-row:not(:has(textarea:focus)) .mobile-actions .attach-btn {
+      display: none;
     }
 
     .file-input {
@@ -313,7 +332,11 @@ export class ChatInput extends LitElement {
       .mobile-actions {
         position: absolute;
         right: 14px;
-        bottom: max(10px, env(safe-area-inset-bottom));
+        bottom: max(
+          10px,
+          env(safe-area-inset-bottom),
+          env(keyboard-inset-height, 0px)
+        );
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -449,6 +472,19 @@ export class ChatInput extends LitElement {
             📎
           </button>
 
+          ${this.showContinueButton && !this.text.trim() && this.pastedImages.length === 0
+            ? html`
+                <button
+                  class="send-btn"
+                  @click=${this.onContinue}
+                  ?disabled=${this.disabled || this.processingPaste}
+                  title="Continue"
+                >
+                  ⏭
+                </button>
+              `
+            : nothing}
+
           ${this.text.trim() || this.pastedImages.length > 0
             ? html`
                 <button
@@ -555,6 +591,18 @@ export class ChatInput extends LitElement {
       }),
     );
     this.clear();
+  }
+
+  private onContinue() {
+    if (this.processingPaste || this.disabled) return;
+
+    this.dispatchEvent(
+      new CustomEvent<ChatInputSubmitDetail>("send", {
+        detail: { text: "continue", images: [] },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private async onPaste(e: ClipboardEvent) {

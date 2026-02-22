@@ -143,6 +143,15 @@ app-root {
   overflow: hidden;
 }
 
+@supports (height: 100dvh) {
+  html,
+  body,
+  app-root,
+  chat-view {
+    height: 100dvh;
+  }
+}
+
 a {
   color: var(--mdLink);
 }
@@ -884,6 +893,7 @@ session-sidebar {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: 12px 14px 18px;
   scroll-behavior: auto;
 }
