@@ -16,7 +16,6 @@ export class ChatInput extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Array }) commands: SlashCommandSpec[] = [];
   @property({ type: Boolean }) commandsLoading = false;
-  @property({ type: Boolean }) showContinueButton = false;
 
   @state() private text = "";
   @state() private selectedCommandIndex = 0;
@@ -229,6 +228,14 @@ export class ChatInput extends LitElement {
 
     .input-row:not(:has(textarea:focus)) .mobile-actions .attach-btn {
       display: none;
+    }
+
+    .mobile-actions .continue-btn {
+      display: none;
+    }
+
+    :host(.agent-idle) .mobile-actions .continue-btn {
+      display: inline-flex;
     }
 
     .file-input {
@@ -472,10 +479,10 @@ export class ChatInput extends LitElement {
             📎
           </button>
 
-          ${this.showContinueButton && !this.text.trim() && this.pastedImages.length === 0
+          ${!this.text.trim() && this.pastedImages.length === 0
             ? html`
                 <button
-                  class="send-btn"
+                  class="send-btn continue-btn"
                   @click=${this.onContinue}
                   ?disabled=${this.disabled || this.processingPaste}
                   title="Continue"

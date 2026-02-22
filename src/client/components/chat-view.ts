@@ -698,6 +698,7 @@ export class ChatView extends LitElement {
 
     const isStreaming = rs?.isStreaming ?? false;
     const isAgentWorking = rs?.isAgentWorking ?? false;
+    const composerStateClass = isAgentWorking || isStreaming ? "agent-active" : "agent-idle";
     const connected = rs?.connected ?? false;
     const reconnecting = rs?.reconnecting ?? false;
     const error = rs?.error ?? "";
@@ -797,11 +798,11 @@ export class ChatView extends LitElement {
           ${renderAboveEditorWidgets(this.extensionWidgets)}
 
           <chat-input
+            class=${composerStateClass}
             .isStreaming=${isStreaming}
             .disabled=${(rs?.models.length || 0) > 0 && !rs?.currentModel}
             .commands=${rs?.commands || []}
             .commandsLoading=${rs?.commandsLoading || false}
-            .showContinueButton=${!isAgentWorking && !isStreaming}
             @send=${this.onSend}
             @steer=${this.onSteer}
             @follow-up=${this.onFollowUp}
