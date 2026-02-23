@@ -239,7 +239,7 @@ The settings panel is accessible via the gear icon in the chat view header. It s
 
 | Setting | Control | Description |
 |---------|---------|-------------|
-| Model | Dropdown/select | Choose from available models. The list is populated by querying the active RPC subprocess (`get_available_models` command). Shows provider and model name. |
+| Model | Dropdown/select | Choose from available models. The list is populated by querying the active RPC subprocess (`get_available_models` command), then filtered by the server using global pi settings `enabledModels` (`~/.pi/agent/settings.json` or `PI_CODING_AGENT_DIR`). `enabledModels` entries are treated as exact `provider/modelId` strings. If the setting is missing/empty/invalid, all available models are shown. |
 | Thinking Level | Segmented control or dropdown | Values: Off, Minimal, Low, Medium, High, XHigh. Changes take effect on the next message. |
 | Theme | Toggle | Auto (system), Light, Dark. Persisted in browser localStorage. |
 
@@ -457,7 +457,7 @@ Event subtypes relayed from the agent:
 
 ##### `available_models`
 
-Response to `get_available_models`.
+Response to `get_available_models`. The server may filter the RPC result using global pi `enabledModels` (exact `provider/modelId` entries) before sending this message to the client.
 
 ```json
 {

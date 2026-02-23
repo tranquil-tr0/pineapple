@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "child_process";
 import type { WebSocket } from "ws";
 import type { RpcProcess } from "./rpc-process.js";
 import type { SessionManager } from "./session-manager.js";
+import type { GlobalModelScope } from "./global-model-scope.js";
 import type {
   ClientMessage,
   RpcEvent,
@@ -29,6 +30,30 @@ interface LocalShellRun {
   proc: ChildProcess;
   promise: Promise<LocalShellResult>;
   aborted: boolean;
+}
+
+export function mapAvailableModels(
+  rawModels: Array<Record<string, unknown>>,
+  enabledModels: ReadonlySet<string> | null,
+): ModelInfo[] {
+  const filteredModels = enabledModels
+    ? rawModels.filter((m) => {
+        const provider = (m.provider as string) || "";
+        const id = (m.modelId as string) || (m.id as string) || "";
+        return enabledModels.has(`${provider}/${id}`);
+      })
+    : rawModels;
+
+  return filteredModels.map((m): ModelInfo => ({
+    provider: (m.provider as string) || "",
+    id: (m.modelId as string) || (m.id as string) || "",
+    label:
+      (m.name as string) ||
+      (m.label as string) ||
+      (m.modelId as string) ||
+      (m.id as string) ||
+      "",
+  }));
 }
 
 const LOCAL_SHELL_MAX_OUTPUT_BYTES = 50 * 1024;
@@ -71,6 +96,7 @@ export async function handleSessionWebSocket(
   ws: WebSocket,
   sessionId: string,
   sessions: SessionManager,
+  globalModelScope: GlobalModelScope,
 ): Promise<void> {
   const pendingCommands = new Map<string, PendingCommand>();
   let runningLocalShell: LocalShellRun | null = null;
@@ -101,6 +127,7 @@ export async function handleSessionWebSocket(
           pendingCommands,
           sessionId,
           sessions,
+          globalModelScope,
           event, // Pass the event to get original ID if needed
         );
         if (handled) {
@@ -288,7 +315,8 @@ export async function handleSessionWebSocket(
         { kind: "set_follow_up_mode" },
       );
     },
-    get_available_models: () => {
+    get_available_models: async () => {
+      await globalModelScope.refresh();
       queuePendingCommand(
         { type: "get_available_models" },
         { kind: "get_available_models" },
@@ -376,6 +404,7 @@ function handlePendingRpcResponse(
   pendingCommands: Map<string, PendingCommand>,
   sessionId: string,
   sessions: SessionManager,
+  globalModelScope: GlobalModelScope,
   _event: RpcEvent,
 ): boolean {
   switch (pending.kind) {
@@ -473,18 +502,10 @@ function handlePendingRpcResponse(
 
     case "get_available_models": {
       const rawModels = (data?.models as Array<Record<string, unknown>>) || [];
+      const enabledModels = globalModelScope.getEnabledModels();
       sendJson(ws, {
         type: "available_models",
-        models: rawModels.map((m): ModelInfo => ({
-          provider: (m.provider as string) || "",
-          id: (m.modelId as string) || (m.id as string) || "",
-          label:
-            (m.name as string) ||
-            (m.label as string) ||
-            (m.modelId as string) ||
-            (m.id as string) ||
-            "",
-        })),
+        models: mapAvailableModels(rawModels, enabledModels),
       });
       return true;
     }

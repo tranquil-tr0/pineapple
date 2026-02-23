@@ -7,6 +7,7 @@ import { existsSync } from "fs";
 import { SessionManager } from "./session-manager.js";
 import { createRouter } from "./routes.js";
 import { handleSessionWebSocket } from "./ws-handler.js";
+import { GlobalModelScope } from "./global-model-scope.js";
 import type { ServerConfig } from "./config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ export interface AppInstance {
  */
 export function createApp(config: ServerConfig): AppInstance {
   const sessions = new SessionManager(config);
+  const globalModelScope = new GlobalModelScope();
   const app = express();
   const server = createHttpServer(app);
 
@@ -55,7 +57,7 @@ export function createApp(config: ServerConfig): AppInstance {
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      handleSessionWebSocket(ws, match[1], sessions).catch((err) => {
+      handleSessionWebSocket(ws, match[1], sessions, globalModelScope).catch((err) => {
         console.error(`[ws] Session setup failed: ${err}`);
         ws.close(1011, "Session setup failed");
       });
