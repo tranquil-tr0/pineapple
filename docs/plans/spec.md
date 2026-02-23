@@ -231,15 +231,16 @@ Each tool call block shows:
 
 ### Git Sidebar Panel
 
-- The sidebar includes a Git panel above message history controls.
-- The panel shows current branch, HEAD short SHA, staged files, and unstaged files for the session's project directory.
+- The sidebar is ordered as: message history controls/list at the top, Git panel beneath it, and active sessions at the bottom.
+- The panel shows current branch and HEAD short SHA for the session's project directory.
+- The panel shows a single "Recent commits" list (maximum 16 commits) with a synthetic first entry `[current index]` that has no commit hash.
+- Selecting `[current index]` shows staged and unstaged files.
+- Selecting a commit entry shows files changed in that commit.
 - File entries include status markers with color coding:
   - Added (`A`) is green.
   - Modified/renamed/conflict/untracked (`M`, `R`, `U`, `?`) is yellow.
   - Deleted (`D`) is red.
-- The panel also shows recent commit history, limited to 16 commits by default.
-- Selecting a commit replaces the top file list with files changed in that commit.
-- Clicking any file entry opens a diff modal with the patch for that file.
+- Clicking any file entry opens a diff modal with the patch for that file in the active scope (staged, unstaged, or commit).
 - Git metadata refreshes automatically every 5 seconds and also refreshes when session activity updates are received.
 - If the session directory is not a Git repository, the panel shows a "Not a git repository" state.
 

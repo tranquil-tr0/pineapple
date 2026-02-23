@@ -330,7 +330,7 @@ session-sidebar {
 }
 
 .cv-sidebar-git {
-  border-bottom: 1px solid var(--dim);
+  border-top: 1px solid var(--dim);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
@@ -489,6 +489,11 @@ session-sidebar {
 .cv-git-commit-sha {
   color: var(--accent);
   flex: 0 0 auto;
+  min-width: 44px;
+}
+
+.cv-git-commit-sha-empty {
+  color: transparent;
 }
 
 .cv-git-empty {

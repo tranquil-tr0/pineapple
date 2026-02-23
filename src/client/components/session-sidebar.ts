@@ -15,6 +15,7 @@ import {
   renderChatSidebar,
   type ActiveSessionItem,
   type GitDiffRequest,
+  CURRENT_INDEX_SELECTION,
 } from "../utils/render-chat-sidebar.js";
 import type { SidebarFilterMode, SidebarEntry } from "../utils/message-shaping.js";
 
@@ -32,7 +33,7 @@ export class SessionSidebar extends LitElement {
   @state() private otherSessions: SessionMeta[] = [];
   @state() private gitStatus: GitStatusSnapshot | null = null;
   @state() private gitCommits: GitCommitSummary[] = [];
-  @state() private selectedCommitSha = "";
+  @state() private selectedCommitSha = CURRENT_INDEX_SELECTION;
   @state() private selectedCommitFiles: GitFileChange[] = [];
   @state() private gitLoading = false;
   @state() private gitError = "";
@@ -129,7 +130,7 @@ export class SessionSidebar extends LitElement {
   private resetGitState() {
     this.gitStatus = null;
     this.gitCommits = [];
-    this.selectedCommitSha = "";
+    this.selectedCommitSha = CURRENT_INDEX_SELECTION;
     this.selectedCommitFiles = [];
     this.gitLoading = false;
     this.gitError = "";
@@ -152,7 +153,7 @@ export class SessionSidebar extends LitElement {
     if (!status) {
       this.gitStatus = null;
       this.gitCommits = [];
-      this.selectedCommitSha = "";
+      this.selectedCommitSha = CURRENT_INDEX_SELECTION;
       this.selectedCommitFiles = [];
       this.gitError = "Failed to load git metadata";
       this.gitLoading = false;
@@ -164,23 +165,25 @@ export class SessionSidebar extends LitElement {
     this.gitError = "";
 
     if (
-      this.selectedCommitSha &&
+      this.selectedCommitSha !== CURRENT_INDEX_SELECTION &&
       !commits.some((commit) => commit.hash === this.selectedCommitSha)
     ) {
-      this.selectedCommitSha = "";
+      this.selectedCommitSha = CURRENT_INDEX_SELECTION;
       this.selectedCommitFiles = [];
     }
 
-    if (this.selectedCommitSha) {
+    if (this.selectedCommitSha !== CURRENT_INDEX_SELECTION) {
       await this.loadSelectedCommitFiles(this.selectedCommitSha);
       if (requestId !== this.gitRequestId) return;
+    } else {
+      this.selectedCommitFiles = [];
     }
 
     this.gitLoading = false;
   }
 
   private async loadSelectedCommitFiles(sha: string) {
-    if (!this.sessionId || !sha) return;
+    if (!this.sessionId || !sha || sha === CURRENT_INDEX_SELECTION) return;
     const files = await fetchSessionGitCommitFiles(this.sessionId, sha);
 
     if (sha !== this.selectedCommitSha) return;
@@ -190,14 +193,13 @@ export class SessionSidebar extends LitElement {
 
   private selectCommit(sha: string) {
     if (sha === this.selectedCommitSha) return;
+
     this.selectedCommitSha = sha;
     this.selectedCommitFiles = [];
-    void this.loadSelectedCommitFiles(sha);
-  }
 
-  private clearSelectedCommit() {
-    this.selectedCommitSha = "";
-    this.selectedCommitFiles = [];
+    if (sha !== CURRENT_INDEX_SELECTION) {
+      void this.loadSelectedCommitFiles(sha);
+    }
   }
 
   private async openDiff(request: GitDiffRequest) {
@@ -275,7 +277,6 @@ export class SessionSidebar extends LitElement {
         void this.refreshGitData(true);
       },
       onSelectCommit: (sha) => this.selectCommit(sha),
-      onCloseCommit: () => this.clearSelectedCommit(),
       onOpenDiff: (request) => {
         void this.openDiff(request);
       },

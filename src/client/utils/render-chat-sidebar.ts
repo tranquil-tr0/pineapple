@@ -29,6 +29,8 @@ export interface GitDiffRequest {
   title: string;
 }
 
+export const CURRENT_INDEX_SELECTION = "__current_index__";
+
 interface RenderChatSidebarOptions {
   search: string;
   filter: SidebarFilterMode;
@@ -49,7 +51,6 @@ interface RenderChatSidebarOptions {
   onFocusMessage: (targetId: string) => void;
   onRefreshGit: () => void;
   onSelectCommit: (sha: string) => void;
-  onCloseCommit: () => void;
   onOpenDiff: (request: GitDiffRequest) => void;
   onCloseDiff: () => void;
 }
@@ -80,115 +81,17 @@ export function renderChatSidebar({
   onFocusMessage,
   onRefreshGit,
   onSelectCommit,
-  onCloseCommit,
   onOpenDiff,
   onCloseDiff,
 }: RenderChatSidebarOptions) {
-  const selectedCommit = gitCommits.find((commit) => commit.hash === selectedCommitSha) || null;
+  const isCurrentIndexSelected =
+    selectedCommitSha === CURRENT_INDEX_SELECTION || !selectedCommitSha;
+  const selectedCommit = isCurrentIndexSelected
+    ? null
+    : gitCommits.find((commit) => commit.hash === selectedCommitSha) || null;
 
   return html`
     <aside class="cv-sidebar" aria-label="Message history and git status">
-      <div class="cv-sidebar-git">
-        <div class="cv-sidebar-git-header">
-          <span>Git</span>
-          <button class="cv-git-refresh-btn" @click=${onRefreshGit} ?disabled=${gitLoading}>↻</button>
-        </div>
-
-        ${gitError
-          ? html`<div class="cv-git-empty">${gitError}</div>`
-          : gitStatus && !gitStatus.isRepo
-            ? html`<div class="cv-git-empty">Not a git repository</div>`
-            : !gitStatus
-              ? html`<div class="cv-git-empty">Loading git status…</div>`
-              : html`
-                  <div class="cv-git-meta" title=${gitStatus.head || ""}>
-                    <span class="cv-git-branch">${gitStatus.branch || "detached"}</span>
-                    ${gitStatus.head
-                      ? html`<span class="cv-git-head">${gitStatus.head.slice(0, 12)}</span>`
-                      : nothing}
-                  </div>
-
-                  ${selectedCommit
-                    ? html`
-                        <div class="cv-git-section">
-                          <div class="cv-git-section-header">
-                            <span>Commit ${selectedCommit.shortHash}</span>
-                            <button class="cv-git-clear-btn" @click=${onCloseCommit}>×</button>
-                          </div>
-                          <div class="cv-git-file-list">
-                            ${selectedCommitFiles.length === 0
-                              ? html`<div class="cv-git-empty">No changed files in commit</div>`
-                              : selectedCommitFiles.map((change) =>
-                                  renderGitFileRow(change, () =>
-                                    onOpenDiff({
-                                      scope: "commit",
-                                      sha: selectedCommit.hash,
-                                      path: change.path,
-                                      title: `${selectedCommit.shortHash} · ${renderGitPath(change)}`,
-                                    }),
-                                  ),
-                                )}
-                          </div>
-                        </div>
-                      `
-                    : html`
-                        <div class="cv-git-section">
-                          <div class="cv-git-section-header">Staged</div>
-                          <div class="cv-git-file-list">
-                            ${gitStatus.staged.length === 0
-                              ? html`<div class="cv-git-empty">No staged files</div>`
-                              : gitStatus.staged.map((change) =>
-                                  renderGitFileRow(change, () =>
-                                    onOpenDiff({
-                                      scope: "staged",
-                                      path: change.path,
-                                      title: `staged · ${renderGitPath(change)}`,
-                                    }),
-                                  ),
-                                )}
-                          </div>
-                        </div>
-
-                        <div class="cv-git-section">
-                          <div class="cv-git-section-header">Unstaged</div>
-                          <div class="cv-git-file-list">
-                            ${gitStatus.unstaged.length === 0
-                              ? html`<div class="cv-git-empty">No unstaged files</div>`
-                              : gitStatus.unstaged.map((change) =>
-                                  renderGitFileRow(change, () =>
-                                    onOpenDiff({
-                                      scope: "unstaged",
-                                      path: change.path,
-                                      title: `unstaged · ${renderGitPath(change)}`,
-                                    }),
-                                  ),
-                                )}
-                          </div>
-                        </div>
-                      `}
-
-                  <div class="cv-git-section cv-git-commits">
-                    <div class="cv-git-section-header">Recent commits</div>
-                    <div class="cv-git-commit-list">
-                      ${gitCommits.length === 0
-                        ? html`<div class="cv-git-empty">No commits</div>`
-                        : gitCommits.map(
-                            (commit) => html`
-                              <button
-                                class="cv-git-commit-row ${selectedCommitSha === commit.hash ? "selected" : ""}"
-                                @click=${() => onSelectCommit(commit.hash)}
-                                title=${`${commit.hash} ${commit.subject}`}
-                              >
-                                <span class="cv-git-commit-sha">${commit.shortHash}</span>
-                                <span class="cv-git-commit-subject">${commit.subject || "(no subject)"}</span>
-                              </button>
-                            `,
-                          )}
-                    </div>
-                  </div>
-                `}
-      </div>
-
       <div class="cv-sidebar-controls">
         <input
           class="cv-sidebar-search"
@@ -224,6 +127,117 @@ export function renderChatSidebar({
             </button>
           `,
         )}
+      </div>
+
+      <div class="cv-sidebar-git">
+        <div class="cv-sidebar-git-header">
+          <span>Git</span>
+          <button class="cv-git-refresh-btn" @click=${onRefreshGit} ?disabled=${gitLoading}>↻</button>
+        </div>
+
+        ${gitError
+          ? html`<div class="cv-git-empty">${gitError}</div>`
+          : gitStatus && !gitStatus.isRepo
+            ? html`<div class="cv-git-empty">Not a git repository</div>`
+            : !gitStatus
+              ? html`<div class="cv-git-empty">Loading git status…</div>`
+              : html`
+                  <div class="cv-git-meta" title=${gitStatus.head || ""}>
+                    <span class="cv-git-branch">${gitStatus.branch || "detached"}</span>
+                    ${gitStatus.head
+                      ? html`<span class="cv-git-head">${gitStatus.head.slice(0, 12)}</span>`
+                      : nothing}
+                  </div>
+
+                  ${isCurrentIndexSelected
+                    ? html`
+                        <div class="cv-git-section">
+                          <div class="cv-git-section-header">Staged</div>
+                          <div class="cv-git-file-list">
+                            ${gitStatus.staged.length === 0
+                              ? html`<div class="cv-git-empty">No staged files</div>`
+                              : gitStatus.staged.map((change) =>
+                                  renderGitFileRow(change, () =>
+                                    onOpenDiff({
+                                      scope: "staged",
+                                      path: change.path,
+                                      title: `staged · ${renderGitPath(change)}`,
+                                    }),
+                                  ),
+                                )}
+                          </div>
+                        </div>
+
+                        <div class="cv-git-section">
+                          <div class="cv-git-section-header">Unstaged</div>
+                          <div class="cv-git-file-list">
+                            ${gitStatus.unstaged.length === 0
+                              ? html`<div class="cv-git-empty">No unstaged files</div>`
+                              : gitStatus.unstaged.map((change) =>
+                                  renderGitFileRow(change, () =>
+                                    onOpenDiff({
+                                      scope: "unstaged",
+                                      path: change.path,
+                                      title: `unstaged · ${renderGitPath(change)}`,
+                                    }),
+                                  ),
+                                )}
+                          </div>
+                        </div>
+                      `
+                    : html`
+                        <div class="cv-git-section">
+                          <div class="cv-git-section-header">
+                            ${selectedCommit
+                              ? `Commit ${selectedCommit.shortHash}`
+                              : "Commit"}
+                          </div>
+                          <div class="cv-git-file-list">
+                            ${selectedCommitFiles.length === 0
+                              ? html`<div class="cv-git-empty">No changed files in commit</div>`
+                              : selectedCommitFiles.map((change) =>
+                                  renderGitFileRow(change, () =>
+                                    onOpenDiff({
+                                      scope: "commit",
+                                      sha: selectedCommit?.hash,
+                                      path: change.path,
+                                      title: `${selectedCommit?.shortHash || "commit"} · ${renderGitPath(change)}`,
+                                    }),
+                                  ),
+                                )}
+                          </div>
+                        </div>
+                      `}
+
+                  <div class="cv-git-section cv-git-commits">
+                    <div class="cv-git-section-header">Recent commits</div>
+                    <div class="cv-git-commit-list">
+                      <button
+                        class="cv-git-commit-row ${isCurrentIndexSelected ? "selected" : ""}"
+                        @click=${() => onSelectCommit(CURRENT_INDEX_SELECTION)}
+                        title="Current index"
+                      >
+                        <span class="cv-git-commit-sha cv-git-commit-sha-empty"></span>
+                        <span class="cv-git-commit-subject">[current index]</span>
+                      </button>
+
+                      ${gitCommits.length === 0
+                        ? html`<div class="cv-git-empty">No commits</div>`
+                        : gitCommits.map(
+                            (commit) => html`
+                              <button
+                                class="cv-git-commit-row ${selectedCommitSha === commit.hash ? "selected" : ""}"
+                                @click=${() => onSelectCommit(commit.hash)}
+                                title=${`${commit.hash} ${commit.subject}`}
+                              >
+                                <span class="cv-git-commit-sha">${commit.shortHash}</span>
+                                <span class="cv-git-commit-subject">${commit.subject || "(no subject)"}</span>
+                              </button>
+                            `,
+                          )}
+                    </div>
+                  </div>
+                `}
       </div>
 
       ${activeSessions.length > 0

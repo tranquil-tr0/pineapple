@@ -10,16 +10,17 @@ Add repository awareness to the chat sidebar so users can quickly inspect staged
 
 The left sidebar now has three stacked areas:
 
-1. Git panel
-2. Message navigation search/filter and message list
+1. Message navigation search/filter and message list
+2. Git panel
 3. Active sessions list
 
 Git panel behavior:
 
 - Shows branch and HEAD short SHA when the session cwd is in a Git repository.
-- Shows staged and unstaged file lists in working-tree mode.
-- Shows up to 16 recent commits.
-- Selecting a commit switches the top list to files changed in that commit.
+- Shows one commit selector list with a synthetic first entry `[current index]`.
+- `[current index]` has no hash and maps to working-tree mode (staged + unstaged file lists).
+- Selecting a real commit switches file display to files changed in that commit.
+- Shows up to 16 real commits after the synthetic `[current index]` entry.
 - Clicking a file opens a modal with a textual diff.
 - Includes manual refresh and automatic refresh every 5 seconds.
 - If cwd is not a repository, shows a non-repo empty state.
