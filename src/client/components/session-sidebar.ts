@@ -3,8 +3,18 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { SessionMeta, SessionActivityUpdate } from "@shared/types.js";
 import { isArchivedSessionName, unarchiveSessionName } from "@shared/session-archive.js";
 import {
+  fetchSessionGitCommitFiles,
+  fetchSessionGitCommits,
+  fetchSessionGitDiff,
+  fetchSessionGitStatus,
+  type GitCommitSummary,
+  type GitFileChange,
+  type GitStatusSnapshot,
+} from "../utils/session-actions.js";
+import {
   renderChatSidebar,
   type ActiveSessionItem,
+  type GitDiffRequest,
 } from "../utils/render-chat-sidebar.js";
 import type { SidebarFilterMode, SidebarEntry } from "../utils/message-shaping.js";
 
@@ -20,19 +30,42 @@ export class SessionSidebar extends LitElement {
   @property({ type: Array }) entries: SidebarEntry[] = [];
 
   @state() private otherSessions: SessionMeta[] = [];
+  @state() private gitStatus: GitStatusSnapshot | null = null;
+  @state() private gitCommits: GitCommitSummary[] = [];
+  @state() private selectedCommitSha = "";
+  @state() private selectedCommitFiles: GitFileChange[] = [];
+  @state() private gitLoading = false;
+  @state() private gitError = "";
+  @state() private diffOpen = false;
+  @state() private diffTitle = "";
+  @state() private diffText = "";
+  @state() private diffLoading = false;
 
   private sessionsEventSource: EventSource | null = null;
   private sessionsSSEHasConnected = false;
+  private gitRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private gitRequestId = 0;
+  private diffRequestId = 0;
 
   connectedCallback() {
     super.connectedCallback();
-    this.loadOtherSessions();
+    void this.loadOtherSessions();
     this.connectSessionsSSE();
+    void this.refreshGitData(true);
+    this.startGitPolling();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.disconnectSessionsSSE();
+    this.stopGitPolling();
+  }
+
+  updated(changed: Map<string, unknown>) {
+    if (changed.has("sessionId")) {
+      this.resetGitState();
+      void this.refreshGitData(true);
+    }
   }
 
   private async loadOtherSessions() {
@@ -42,7 +75,7 @@ export class SessionSidebar extends LitElement {
       const data = await res.json();
       this.otherSessions = data.sessions;
     } catch {
-      // silent
+      return;
     }
   }
 
@@ -52,7 +85,7 @@ export class SessionSidebar extends LitElement {
 
     this.sessionsEventSource.onopen = () => {
       if (this.sessionsSSEHasConnected) {
-        this.loadOtherSessions();
+        void this.loadOtherSessions();
       }
       this.sessionsSSEHasConnected = true;
     };
@@ -64,7 +97,11 @@ export class SessionSidebar extends LitElement {
         session.activity = update.activity;
         this.otherSessions = [...this.otherSessions];
       } else {
-        this.loadOtherSessions();
+        void this.loadOtherSessions();
+      }
+
+      if (update.sessionId === this.sessionId) {
+        void this.refreshGitData(false);
       }
     };
   }
@@ -74,6 +111,122 @@ export class SessionSidebar extends LitElement {
       this.sessionsEventSource.close();
       this.sessionsEventSource = null;
     }
+  }
+
+  private startGitPolling() {
+    this.stopGitPolling();
+    this.gitRefreshTimer = setInterval(() => {
+      void this.refreshGitData(false);
+    }, 5000);
+  }
+
+  private stopGitPolling() {
+    if (!this.gitRefreshTimer) return;
+    clearInterval(this.gitRefreshTimer);
+    this.gitRefreshTimer = null;
+  }
+
+  private resetGitState() {
+    this.gitStatus = null;
+    this.gitCommits = [];
+    this.selectedCommitSha = "";
+    this.selectedCommitFiles = [];
+    this.gitLoading = false;
+    this.gitError = "";
+    this.closeDiff();
+  }
+
+  private async refreshGitData(showLoading: boolean) {
+    if (!this.sessionId) return;
+
+    const requestId = ++this.gitRequestId;
+    if (showLoading) this.gitLoading = true;
+
+    const [status, commits] = await Promise.all([
+      fetchSessionGitStatus(this.sessionId),
+      fetchSessionGitCommits(this.sessionId, 16),
+    ]);
+
+    if (requestId !== this.gitRequestId) return;
+
+    if (!status) {
+      this.gitStatus = null;
+      this.gitCommits = [];
+      this.selectedCommitSha = "";
+      this.selectedCommitFiles = [];
+      this.gitError = "Failed to load git metadata";
+      this.gitLoading = false;
+      return;
+    }
+
+    this.gitStatus = status;
+    this.gitCommits = commits;
+    this.gitError = "";
+
+    if (
+      this.selectedCommitSha &&
+      !commits.some((commit) => commit.hash === this.selectedCommitSha)
+    ) {
+      this.selectedCommitSha = "";
+      this.selectedCommitFiles = [];
+    }
+
+    if (this.selectedCommitSha) {
+      await this.loadSelectedCommitFiles(this.selectedCommitSha);
+      if (requestId !== this.gitRequestId) return;
+    }
+
+    this.gitLoading = false;
+  }
+
+  private async loadSelectedCommitFiles(sha: string) {
+    if (!this.sessionId || !sha) return;
+    const files = await fetchSessionGitCommitFiles(this.sessionId, sha);
+
+    if (sha !== this.selectedCommitSha) return;
+
+    this.selectedCommitFiles = files || [];
+  }
+
+  private selectCommit(sha: string) {
+    if (sha === this.selectedCommitSha) return;
+    this.selectedCommitSha = sha;
+    this.selectedCommitFiles = [];
+    void this.loadSelectedCommitFiles(sha);
+  }
+
+  private clearSelectedCommit() {
+    this.selectedCommitSha = "";
+    this.selectedCommitFiles = [];
+  }
+
+  private async openDiff(request: GitDiffRequest) {
+    if (!this.sessionId) return;
+
+    const requestId = ++this.diffRequestId;
+    this.diffOpen = true;
+    this.diffTitle = request.title;
+    this.diffText = "";
+    this.diffLoading = true;
+
+    const diff = await fetchSessionGitDiff(this.sessionId, {
+      scope: request.scope,
+      path: request.path,
+      sha: request.sha,
+    });
+
+    if (requestId !== this.diffRequestId) return;
+
+    this.diffText = diff || "";
+    this.diffLoading = false;
+  }
+
+  private closeDiff() {
+    this.diffRequestId++;
+    this.diffOpen = false;
+    this.diffLoading = false;
+    this.diffTitle = "";
+    this.diffText = "";
   }
 
   private getActiveSessions(): ActiveSessionItem[] {
@@ -102,12 +255,31 @@ export class SessionSidebar extends LitElement {
       filter: this.sidebarFilter,
       entries: this.entries,
       activeSessions: this.getActiveSessions(),
+      gitStatus: this.gitStatus,
+      gitCommits: this.gitCommits,
+      selectedCommitSha: this.selectedCommitSha,
+      selectedCommitFiles: this.selectedCommitFiles,
+      gitLoading: this.gitLoading,
+      gitError: this.gitError,
+      diffOpen: this.diffOpen,
+      diffTitle: this.diffTitle,
+      diffText: this.diffText,
+      diffLoading: this.diffLoading,
       onSearchInput: (e) =>
         this.dispatchEvent(new CustomEvent("search-input", { detail: (e.target as HTMLInputElement).value })),
       onSelectFilter: (mode) =>
         this.dispatchEvent(new CustomEvent("select-filter", { detail: mode })),
       onFocusMessage: (targetId) =>
         this.dispatchEvent(new CustomEvent("focus-message", { detail: targetId })),
+      onRefreshGit: () => {
+        void this.refreshGitData(true);
+      },
+      onSelectCommit: (sha) => this.selectCommit(sha),
+      onCloseCommit: () => this.clearSelectedCommit(),
+      onOpenDiff: (request) => {
+        void this.openDiff(request);
+      },
+      onCloseDiff: () => this.closeDiff(),
     });
   }
 }
