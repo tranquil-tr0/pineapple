@@ -136,6 +136,13 @@ body {
   overscroll-behavior: none;
 }
 
+button,
+input,
+select,
+textarea {
+  font-family: var(--font);
+}
+
 app-root {
   display: block;
   height: 100%;
@@ -1063,8 +1070,7 @@ session-sidebar {
   height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden auto;
   overscroll-behavior: contain;
   padding: 12px 14px 18px;
   scroll-behavior: auto;
