@@ -16,7 +16,7 @@ export class SessionSidebar extends LitElement {
 
   @property({ type: String }) sessionId = "";
   @property({ type: String }) sidebarSearch = "";
-  @property({ type: String }) sidebarFilter: SidebarFilterMode = "no-tools";
+  @property({ type: String }) sidebarFilter: SidebarFilterMode = "user-only";
   @property({ type: Array }) entries: SidebarEntry[] = [];
 
   @state() private otherSessions: SessionMeta[] = [];

@@ -85,7 +85,7 @@ export class ChatView extends LitElement {
   @state() private showThinking = true;
   @state() private expandToolOutputs = false;
   @state() private sidebarSearch = "";
-  @state() private sidebarFilter: SidebarFilterMode = "no-tools";
+  @state() private sidebarFilter: SidebarFilterMode = "user-only";
   @state() private sessionCreatedAt = "";
   @state() private sessionLastActivityAt = "";
   @state() private hostCwd = "";
@@ -114,7 +114,7 @@ export class ChatView extends LitElement {
 
   private _lastSidebarRenderable: AgentMessageData[] | null = null;
   private _lastSidebarSearch = "";
-  private _lastSidebarFilter: SidebarFilterMode = "no-tools";
+  private _lastSidebarFilter: SidebarFilterMode = "user-only";
   private _cachedSidebarEntries: SidebarEntry[] = [];
 
   connectedCallback() {

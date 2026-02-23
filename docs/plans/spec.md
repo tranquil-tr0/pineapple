@@ -223,6 +223,12 @@ Each tool call block shows:
 - The browser URL updates to `/session/:id` so that refreshing the page re-opens the same session.
 - The back button (browser or header `[←]`) returns to the landing page.
 
+### Message History Sidebar
+
+- The chat view includes a message history sidebar with search and role filters.
+- Filter options are `User`, `No-tools`, and `All`.
+- Default filter is `User` to reduce sidebar entry count and focus navigation on user turns.
+
 ---
 
 ## 6. Settings Panel
