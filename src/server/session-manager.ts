@@ -1,5 +1,5 @@
 import { readdir, readFile, rm, mkdir, appendFile, stat } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { homedir } from "os";
 import { RpcProcess } from "./rpc-process.js";
 import type {
@@ -177,6 +177,16 @@ export class SessionManager {
     this.active.set(sessionId, entry);
 
     return sessionId;
+  }
+
+  async getSessionCwd(sessionId: string): Promise<string | null> {
+    const active = this.active.get(sessionId);
+    if (active?.cwd) return active.cwd;
+
+    const loc = await this.findSessionFile(sessionId);
+    if (!loc) return null;
+
+    return decodeCwd(basename(loc.bucketDir));
   }
 
   async updateSession(
@@ -602,9 +612,13 @@ export class SessionManager {
   private async findSessionFile(sessionId: string): Promise<{ bucketDir: string; file: string } | undefined> {
     const cached = this.sessionFileById.get(sessionId);
     if (cached) {
-      const parsed = await this.parseSessionFile(cached.file, cached.bucketDir, "");
-      if (parsed?.id === sessionId) {
-        return cached;
+      const cachedBucket = basename(cached.bucketDir);
+      const cachedCwd = await decodeCwd(cachedBucket);
+      if (cachedCwd) {
+        const parsed = await this.parseSessionFile(cached.file, cached.bucketDir, cachedCwd);
+        if (parsed?.id === sessionId) {
+          return cached;
+        }
       }
       this.sessionFileById.delete(sessionId);
       const cacheKey = cached.bucketDir + "/" + cached.file;

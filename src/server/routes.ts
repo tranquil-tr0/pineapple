@@ -2,10 +2,24 @@ import { Router, json } from "express";
 import { stat } from "fs/promises";
 import type { SessionManager } from "./session-manager.js";
 import { listProjects } from "./project-registry.js";
+import {
+  getGitCommitFiles,
+  getGitCommitHistory,
+  getGitDiffForFile,
+  getGitStatusSnapshot,
+} from "./git-inspector.js";
 
 export function createRouter(sessions: SessionManager): Router {
   const router = Router();
   router.use(json());
+
+  const resolveSessionCwd = async (sessionId: string): Promise<string | null> => {
+    try {
+      return await sessions.getSessionCwd(sessionId);
+    } catch {
+      return null;
+    }
+  };
 
   router.get("/health", (_req, res) => {
     res.json({
@@ -97,6 +111,86 @@ export function createRouter(sessions: SessionManager): Router {
   router.get("/projects", async (_req, res) => {
     const projects = await listProjects(sessions.sessionsRoot);
     res.json({ projects });
+  });
+
+  router.get("/sessions/:id/git/status", async (req, res) => {
+    const cwd = await resolveSessionCwd(req.params.id);
+    if (!cwd) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const snapshot = await getGitStatusSnapshot(cwd);
+    res.json(snapshot);
+  });
+
+  router.get("/sessions/:id/git/commits", async (req, res) => {
+    const cwd = await resolveSessionCwd(req.params.id);
+    if (!cwd) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const rawLimit = Number(req.query.limit);
+    const limit = Number.isFinite(rawLimit) ? rawLimit : 16;
+    const commits = await getGitCommitHistory(cwd, limit);
+    res.json({ commits });
+  });
+
+  router.get("/sessions/:id/git/commits/:sha/files", async (req, res) => {
+    const cwd = await resolveSessionCwd(req.params.id);
+    if (!cwd) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const files = await getGitCommitFiles(cwd, req.params.sha);
+    if (!files) {
+      res.status(400).json({ error: "Invalid commit reference" });
+      return;
+    }
+
+    res.json({ files });
+  });
+
+  router.get("/sessions/:id/git/diff", async (req, res) => {
+    const cwd = await resolveSessionCwd(req.params.id);
+    if (!cwd) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const scope = req.query.scope;
+    const path = req.query.path;
+    const sha = req.query.sha;
+
+    if (
+      scope !== "staged" &&
+      scope !== "unstaged" &&
+      scope !== "commit"
+    ) {
+      res.status(400).json({ error: "Invalid diff scope" });
+      return;
+    }
+
+    if (typeof path !== "string" || !path.trim()) {
+      res.status(400).json({ error: "Missing required query parameter: path" });
+      return;
+    }
+
+    const diff = await getGitDiffForFile(
+      cwd,
+      scope,
+      path,
+      typeof sha === "string" ? sha : undefined,
+    );
+
+    if (diff === null) {
+      res.status(400).json({ error: "Invalid diff request" });
+      return;
+    }
+
+    res.json({ diff });
   });
 
   return router;
