@@ -40,8 +40,7 @@ export class ChatInput extends LitElement {
       flex-shrink: 0;
       width: 100%;
       min-width: 0;
-      overflow-x: hidden;
-      overflow-y: visible;
+      overflow: visible;
       border-top: 1px solid var(--borderSubtle, var(--borderMuted, #505050));
       border-bottom: 1px solid var(--borderSubtle, var(--borderMuted, #505050));
       background: var(--surface);

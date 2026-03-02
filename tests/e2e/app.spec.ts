@@ -584,6 +584,26 @@ test.describe("Chat View", () => {
     expect(inputBox).not.toBeNull();
     expect(popoverBox).not.toBeNull();
     expect(popoverBox!.y + popoverBox!.height).toBeLessThanOrEqual(inputBox!.y + 2);
+
+    const layerProbe = await page.evaluate(() => {
+      const chatInput = document.querySelector("chat-input");
+      const popover = chatInput?.shadowRoot?.querySelector(".commands-popover") as HTMLElement | null;
+      if (!chatInput || !popover) return null;
+
+      const rect = popover.getBoundingClientRect();
+      const x = rect.left + Math.min(20, rect.width / 2);
+      const y = rect.top + Math.min(20, rect.height / 2);
+      const top = document.elementFromPoint(x, y) as HTMLElement | null;
+
+      return {
+        topTag: top?.tagName ?? null,
+        topClass: top?.className ?? null,
+        withinChatInput: !!top?.closest("chat-input"),
+      };
+    });
+
+    expect(layerProbe).not.toBeNull();
+    expect(layerProbe!.withinChatInput).toBe(true);
   });
 
   test("renders extension confirm request and sends response", async ({ page }) => {
