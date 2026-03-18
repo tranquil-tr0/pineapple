@@ -292,9 +292,8 @@ export class SessionManager {
     }
 
     const loc = await this.findSessionFile(sessionId);
-    const bucketName = loc ? basename(loc.bucketDir) : undefined;
     const cwd = loc
-      ? (await decodeCwd(bucketName) ?? process.cwd())
+      ? (await decodeCwd(basename(loc.bucketDir))) ?? process.cwd()
       : process.cwd();
     const bucketDir = loc ? loc.bucketDir : join(this.config.sessionsRoot, encodeCwd(cwd));
 
@@ -303,6 +302,7 @@ export class SessionManager {
       this.config.piCommand,
       cwd,
       loc ? join(loc.bucketDir, loc.file) : undefined,
+      loc?.bucketDir,
       env,
     );
 

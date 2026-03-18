@@ -13,6 +13,7 @@ export class RpcProcess extends EventEmitter {
     private piCommand: string,
     private cwd: string,
     private sessionFile: string | undefined,
+    private sessionDir: string | undefined,
     private env: Record<string, string>,
   ) {
     super();
