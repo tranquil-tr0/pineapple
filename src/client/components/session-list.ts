@@ -632,7 +632,7 @@ export class SessionList extends LitElement {
         <h1>🍕</h1>
         <button class="new-btn" @click=${this.openProjectPicker}>
           <span class="plus">+</span>
-          <span>New</span>
+          <span>New session</span>
         </button>
       </header>
 
@@ -673,29 +673,13 @@ export class SessionList extends LitElement {
         ? html`
             <div class="backdrop" @click=${this.closeProjectPicker}></div>
             <div class="project-picker">
-              ${recentProjects.length > 0
-                ? html`
-                    <div class="project-picker-label">Recent projects</div>
-                    ${recentProjects.map(
-                      (p) => html`
-                        <button
-                          class="project-item"
-                          @click=${() => this.createSessionWithCwd(p.cwd)}
-                        >
-                          <div class="project-item-path">${p.displayPath}</div>
-                          <div class="project-item-meta">${p.sessionCount} session${p.sessionCount === 1 ? "" : "s"}</div>
-                        </button>
-                      `,
-                    )}
-                    <hr class="project-picker-divider" />
-                  `
-                : nothing}
-              <div class="project-picker-label">Enter directory path</div>
+              <div class="project-picker-label">Directory</div>
               <div class="project-cwd-form">
                 <input
                   class="project-cwd-input"
                   type="text"
                   placeholder="/path/to/project"
+                  autofocus
                   .value=${this.cwdInput}
                   @input=${(e: InputEvent) => (this.cwdInput = (e.target as HTMLInputElement).value)}
                   @keydown=${this.onCwdInputKeydown}
