@@ -243,9 +243,7 @@ export class SessionManager {
   async deleteSession(id: string): Promise<boolean> {
     const active = this.active.get(id);
     if (active) {
-      await active.rpc.stop();
-      if (active.idleTimer) clearTimeout(active.idleTimer);
-      this.active.delete(id);
+      await this.stopActiveSession(id, active, "delete_session");
     }
 
     const loc = await this.findSessionFile(id);
@@ -344,6 +342,17 @@ export class SessionManager {
     }
   }
 
+  async stopSession(id: string, reason = "api_stop"): Promise<boolean> {
+    const active = this.active.get(id);
+    if (active) {
+      await this.stopActiveSession(id, active, reason);
+      return true;
+    }
+
+    const loc = await this.findSessionFile(id);
+    return !!loc;
+  }
+
   shutdown(): void {
     for (const [, entry] of this.active) {
       if (entry.idleTimer) clearTimeout(entry.idleTimer);
@@ -365,6 +374,22 @@ export class SessionManager {
     for (const listener of this.activityListeners) {
       listener(update);
     }
+  }
+
+  private async stopActiveSession(
+    sessionId: string,
+    entry: ActiveSession,
+    reason: string,
+  ): Promise<void> {
+    console.log(`[session:${sessionId}] stopping (${reason})`);
+    if (entry.idleTimer) {
+      clearTimeout(entry.idleTimer);
+      entry.idleTimer = null;
+    }
+    this.recentClientActivityAt.delete(sessionId);
+    this.active.delete(sessionId);
+    this.broadcastActivity(sessionId);
+    await entry.rpc.stop();
   }
 
   private bindRpcHandlers(entry: ActiveSession): void {
@@ -418,6 +443,8 @@ export class SessionManager {
     entry.idleTimer = setTimeout(() => {
       entry.rpc.stop();
       this.active.delete(sessionId);
+      this.recentClientActivityAt.delete(sessionId);
+      this.broadcastActivity(sessionId);
     }, this.config.idleTimeoutMs);
   }
 

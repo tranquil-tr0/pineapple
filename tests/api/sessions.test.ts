@@ -318,6 +318,13 @@ describe("Session listing from JSONL files", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it("POST /api/sessions/:id/stop returns 404 for unknown session", async () => {
+    const res = await fetch(`${baseUrl}/api/sessions/nonexistent-id/stop`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("Session creation errors", () => {
@@ -509,6 +516,25 @@ describe("Session CRUD with real pi", () => {
       (s: { id: string }) => s.id === createdId,
     );
     expect(session).toBeUndefined();
+  });
+
+  it("POST /api/sessions/:id/stop stops the active RPC session", async () => {
+    const createRes = await fetch(`${baseUrl}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cwd: cwdDir }),
+    });
+    expect(createRes.status).toBe(201);
+    const { id } = await createRes.json();
+
+    const res = await fetch(`${baseUrl}/api/sessions/${id}/stop`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(204);
+
+    const healthRes = await fetch(`${baseUrl}/api/health`);
+    const health = await healthRes.json();
+    expect(health.activeSessions).toBe(0);
   });
 }, 30000);
 

@@ -123,6 +123,25 @@ export function createRouter(sessions: SessionManager): Router {
     }
   });
 
+  router.post("/sessions/:id/stop", async (req, res) => {
+    try {
+      const reason =
+        typeof req.query.reason === "string" && req.query.reason.trim()
+          ? req.query.reason.trim()
+          : "api_stop";
+      const ok = await sessions.stopSession(req.params.id, reason);
+      if (!ok) {
+        res.status(404).json({ error: "Session not found" });
+        return;
+      }
+      res.status(204).send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to stop session";
+      console.error(`[POST /sessions/${req.params.id}/stop] ${message}`);
+      res.status(500).json({ error: message });
+    }
+  });
+
   router.get("/projects", async (_req, res) => {
     const projects = await listProjects(sessions.sessionsRoot);
     res.json({ projects });

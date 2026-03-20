@@ -29,6 +29,7 @@ import {
 import {
   fetchSessionInfo,
   patchSessionName,
+  stopSessionProcess,
   unarchiveSessionIfNeeded,
 } from "../utils/session-actions.js";
 import { renderExtensionUiDialog } from "../utils/render-extension-ui-dialog.js";
@@ -114,6 +115,7 @@ export class ChatView extends LitElement {
   private pendingCacheMessages: AgentMessageData[] = [];
   private pendingDraftRestore: string | null = null;
   private draftRestoreApplied = false;
+  private stopRequestedForSessionId: string | null = null;
 
   private _lastBaseMessages: AgentMessageData[] | null = null;
   private _cachedRenderable: AgentMessageData[] = [];
@@ -136,6 +138,7 @@ export class ChatView extends LitElement {
   }
 
   disconnectedCallback() {
+    this.requestSessionStop(this.sessionId);
     super.disconnectedCallback();
     this.cleanup();
     window.removeEventListener("keydown", this.onKeydown);
@@ -150,6 +153,7 @@ export class ChatView extends LitElement {
     if (changed.has("sessionId")) {
       const previousSessionId = changed.get("sessionId");
       if (typeof previousSessionId === "string" && previousSessionId !== this.sessionId) {
+        this.requestSessionStop(previousSessionId);
         this.resetSessionState();
         this.pendingDeepLinkTarget = this.targetMessageId || "";
         this.updateDocumentTitle();
@@ -200,6 +204,7 @@ export class ChatView extends LitElement {
 
   private bootstrapSessionRuntime() {
     if (!this.sessionId) return;
+    this.stopRequestedForSessionId = null;
     this.cachedMessages = this.loadCachedMessages();
     this.pendingDraftRestore = this.loadDraftText();
     this.draftRestoreApplied = false;
@@ -1019,7 +1024,16 @@ export class ChatView extends LitElement {
     `;
   }
 
+  private requestSessionStop(sessionId: string) {
+    if (!sessionId || this.stopRequestedForSessionId === sessionId) {
+      return;
+    }
+    this.stopRequestedForSessionId = sessionId;
+    stopSessionProcess(sessionId);
+  }
+
   private onArchive() {
+    this.requestSessionStop(this.sessionId);
     window.location.hash = "#/";
   }
 }

@@ -176,6 +176,17 @@ export async function patchSessionName(sessionId: string, name: string): Promise
   }
 }
 
+export function stopSessionProcess(sessionId: string): void {
+  if (!sessionId) return;
+  const params = new URLSearchParams({ reason: "client_leave" });
+  void fetch(`/api/sessions/${encodeURIComponent(sessionId)}/stop?${params.toString()}`, {
+    method: "POST",
+    keepalive: true,
+  }).catch(() => {
+    // Ignore stop failures during navigation/teardown.
+  });
+}
+
 export async function unarchiveSessionIfNeeded(
   sessionId: string,
   currentName: string
