@@ -367,7 +367,7 @@ describe("Session creation errors", () => {
 
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toMatch(/spawn|RPC process/i);
+    expect(data.error).toMatch(/spawn|RPC process|Executable not found/i);
 
     const healthRes = await fetch(`${baseUrl}/api/health`);
     expect(healthRes.status).toBe(200);

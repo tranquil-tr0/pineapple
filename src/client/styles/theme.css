@@ -143,12 +143,7 @@ textarea {
   font-family: var(--font);
 }
 
-app-root {
-  display: block;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
+
 
 @supports (height: 100dvh) {
   html,
@@ -309,7 +304,7 @@ chat-view {
 
 .cv-body {
   display: grid;
-  grid-template-columns: 400px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 400px;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -322,7 +317,10 @@ session-sidebar {
 }
 
 .cv-sidebar {
-  border-right: 1px solid var(--dim);
+  width: 400px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--dim);
+  border-right: none;
   background: var(--surface);
   display: flex;
   flex-direction: column;
@@ -672,14 +670,10 @@ session-sidebar {
 }
 
 .cv-main-col {
-  position: relative;
   display: flex;
   flex-direction: column;
-  width: 100%;
   min-width: 0;
   min-height: 0;
-  max-width: 100%;
-  overflow: hidden;
 }
 
 .cv-editor-widget-stack {
@@ -883,7 +877,8 @@ session-sidebar {
 }
 
 .cv-system-prompt[open] .cv-system-prompt-full {
-  display: block;
+  display: flex;
+  flex-direction: row;
   margin-top: 8px;
 }
 
@@ -1490,7 +1485,8 @@ session-sidebar {
 
 .tool-output.expandable.expanded .output-full,
 .ml-list.expand-all .tool-output.expandable .output-full {
-  display: block;
+  display: flex;
+  flex-direction: row;
 }
 
 .ansi-rendered {
@@ -1576,7 +1572,8 @@ session-sidebar {
 }
 
 .markdown-content pre code {
-  display: block;
+  display: flex;
+  flex-direction: row;
   color: var(--text-primary);
   background: none;
   padding: 0;
@@ -1805,7 +1802,7 @@ session-sidebar {
 
 @media (max-width: 980px) {
   .cv-body {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .cv-sidebar {
@@ -1822,7 +1819,7 @@ session-sidebar {
   }
 
   .cv-info-grid {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .cv-info-item {
@@ -1876,5 +1873,60 @@ session-sidebar {
 @media (max-width: 980px) and (pointer: coarse) {
   .cv-info-title-input {
     font-size: 16px;
+  }
+}
+
+@media (min-width: 981px) {
+  .cv-back-btn {
+    display: none !important;
+  }
+}
+
+app-root {
+  display: flex !important;
+  flex-direction: row !important;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.app-sidebar {
+  width: 300px !important;
+  flex-shrink: 0 !important;
+  border-right: 1px solid var(--borderMuted) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.app-main {
+  flex: 1 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  background: var(--bg);
+}
+
+@media (max-width: 980px) {
+  .app-sidebar {
+    display: none !important;
+  }
+  app-root[show-sidebar] .app-sidebar {
+    display: flex !important;
+    width: 100% !important;
+  }
+  app-root[show-sidebar] .app-main {
+    display: none !important;
   }
 }

@@ -877,15 +877,7 @@ export class ChatView extends LitElement {
         : error ? html`<div class="cv-banner error">${error}</div>` : nothing}
 
       <div class="cv-body">
-        <session-sidebar
-          .sessionId=${this.sessionId}
-          .sidebarSearch=${this.sidebarSearch}
-          .sidebarFilter=${this.sidebarFilter}
-          .entries=${sidebarEntries}
-          @search-input=${(e: CustomEvent<string>) => (this.sidebarSearch = e.detail)}
-          @select-filter=${(e: CustomEvent<SidebarFilterMode>) => (this.sidebarFilter = e.detail)}
-          @focus-message=${(e: CustomEvent<string>) => this.focusMessage(e.detail)}
-        ></session-sidebar>
+        
 
         <div class="cv-main-col">
           <a class="cv-back-btn" href="#/" title="Back to session list">&#8592;</a>
@@ -1006,9 +998,20 @@ export class ChatView extends LitElement {
             onThinkingChange: (e) => this.onStatusThinkingChange(e),
           })}
         </div>
+      
+        <session-sidebar
+          .sessionId=${this.sessionId}
+          .sidebarSearch=${this.sidebarSearch}
+          .sidebarFilter=${this.sidebarFilter}
+          .entries=${sidebarEntries}
+          @search-input=${(e: CustomEvent<string>) => (this.sidebarSearch = e.detail)}
+          @select-filter=${(e: CustomEvent<SidebarFilterMode>) => (this.sidebarFilter = e.detail)}
+          @focus-message=${(e: CustomEvent<string>) => this.focusMessage(e.detail)}
+        ></session-sidebar>
       </div>
 
       ${this.renderExtensionUiDialog()}
+
 
       <settings-panel
         .open=${this.settingsOpen}

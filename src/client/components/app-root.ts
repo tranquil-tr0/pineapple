@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import {
   fetchSessionInfoResult,
@@ -26,13 +26,7 @@ export class AppRoot extends LitElement {
     return this;
   }
 
-  static styles = css`
-    :host {
-      display: block;
-      height: 100%;
-      width: 100%;
-    }
-  `;
+  
 
   connectedCallback() {
     super.connectedCallback();
@@ -85,25 +79,42 @@ export class AppRoot extends LitElement {
   };
 
   render() {
+    if (this.route.page !== "session") {
+      this.setAttribute("show-sidebar", "");
+    } else {
+      this.removeAttribute("show-sidebar");
+    }
+    let mainContent;
     switch (this.route.page) {
       case "session":
-        return html`<chat-view
+        mainContent = html`<chat-view
           .sessionId=${this.route.id}
           .initialSessionInfo=${this.route.info}
           .targetMessageId=${this.route.targetId || ""}
         ></chat-view>`;
+        break;
       case "not-found":
-        return html`
+        mainContent = html`
           <div class="not-found">
             <h2>Session not found</h2>
             <p>The session <code>${this.route.id}</code> does not exist.</p>
             <a href="#/">Back to sessions</a>
           </div>
         `;
+        break;
       case "loading":
-        return html``;
+        mainContent = html``;
+        break;
       default:
-        return html`<session-list></session-list>`;
+        mainContent = html`<div class="empty-state">Select a session or create a new one</div>`;
+        break;
     }
+
+    return html`
+      <session-list class="app-sidebar" .activeSessionId=${this.route.page === "session" ? this.route.id : ""}></session-list>
+      <div class="app-main">
+        ${mainContent}
+      </div>
+    `;
   }
 }

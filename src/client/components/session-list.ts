@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, state, property } from "lit/decorators.js";
 import type { SessionMeta, SessionActivityState, SessionActivityUpdate } from "@shared/types.js";
 import {
   archiveSessionName,
@@ -10,6 +10,7 @@ import { fetchProjects, type ProjectInfo } from "../utils/session-actions.js";
 
 @customElement("session-list")
 export class SessionList extends LitElement {
+  @property({ type: String }) activeSessionId = "";
   @state() private sessions: SessionMeta[] = [];
   @state() private loading = true;
   @state() private error = "";
@@ -148,6 +149,12 @@ export class SessionList extends LitElement {
 
     .session-item:active {
       background: var(--surface-alt);
+    }
+
+    .session-item.active {
+      background: var(--surface-alt);
+      border-left: 2px solid var(--accent);
+      padding-left: 18px;
     }
 
     .session-item.archived {
@@ -765,7 +772,7 @@ export class SessionList extends LitElement {
 
     return html`
       <a
-        class="session-item ${archived ? "archived" : ""}"
+        class="session-item ${archived ? "archived" : ""} ${s.id === this.activeSessionId ? "active" : ""}"
         href="#/session/${s.id}"
       >
         <div class="session-main">
