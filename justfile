@@ -1,20 +1,20 @@
 dev:
-    npm run dev
+    bun run dev
 
 lint:
-    npm run lint
+    bun run lint
 
 test:
-    npm test
+    bun test
 
 test-api:
-    npm run test:api
+    bun run test:api
 
 test-e2e:
-    npm run test:e2e
+    bun run test:e2e
 
 build:
-    npm run build
+    bun run build
 
 run: build
-    npm start
+    bun start

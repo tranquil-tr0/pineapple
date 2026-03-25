@@ -20,14 +20,14 @@ just test-e2e    # Run Playwright E2E tests
 just build       # Build for production
 ```
 
-Alternative npm scripts (if just is not available):
+Alternative bun scripts (if just is not available):
 
 ```bash
-npm run lint     # Run ESLint
-npm test         # Run all tests
-npm run test:api # Run API/unit tests only
-npm run test:e2e # Run Playwright E2E tests
-npm run build    # Build for production
+bun run lint     # Run ESLint
+bun test         # Run all tests
+bun run test:api # Run API/unit tests only
+bun run test:e2e # Run Playwright E2E tests
+bun run build    # Build for production
 ```
 
 Note: E2E tests require the dev server to not be running on port 3001.
