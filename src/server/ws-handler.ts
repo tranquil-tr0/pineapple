@@ -251,6 +251,7 @@ export async function handleSessionWebSocket(
 
   const handlers: ClientMessageHandlers = {
     prompt: (msg) => {
+      console.log("WS: prompt requested");
       forwardInputWithImages("prompt", msg.text, msg.images);
     },
     steer: (msg) => {
@@ -336,6 +337,7 @@ export async function handleSessionWebSocket(
       );
     },
     get_commands: () => {
+      console.log("WS: get_commands requested");
       queuePendingCommand({ type: "get_commands" }, { kind: "get_commands" });
     },
     extension_ui_response: (msg) => {
@@ -351,6 +353,7 @@ export async function handleSessionWebSocket(
   };
 
   ws.on("message", async (data) => {
+    console.log("WS: raw message received:", data.toString());
     let parsed: unknown;
     try {
       parsed = JSON.parse(data.toString());
@@ -525,6 +528,7 @@ function handlePendingRpcResponse(
     case "get_commands": {
       const rawCommands =
         (data?.commands as Array<Record<string, unknown>>) || [];
+      console.log(`RPC: received ${rawCommands.length} commands`);
       sendJson(ws, {
         type: "available_commands",
         commands: rawCommands
