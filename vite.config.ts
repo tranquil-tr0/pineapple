@@ -6,7 +6,10 @@ export default defineConfig({
   build: {
     outDir: "../../dist/client",
     emptyOutDir: true,
+    assetsDir: "assets",
+    copyPublicDir: true,
   },
+  publicDir: "../../assets",
   resolve: {
     alias: {
       "@shared": resolve(__dirname, "src/shared"),

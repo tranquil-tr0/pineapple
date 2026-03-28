@@ -50,11 +50,11 @@ export class AppRoot extends LitElement {
       case "loading":
       case "home":
       case "not-found":
-        document.title = "pizza";
+        document.title = "pineapple";
         break;
       case "session":
         // Placeholder until chat-view loads the real session name.
-        document.title = "pizza";
+        document.title = "pineapple";
         break;
     }
   }

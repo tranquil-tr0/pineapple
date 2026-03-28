@@ -636,7 +636,7 @@ export class SessionList extends LitElement {
 
     return html`
       <header>
-        <h1>🍕</h1>
+        <h1><img src="/pineapple-svgrepo.svg" alt="pineapple" width="20" height="20" /> pineapple</h1>
         <button class="new-btn" @click=${this.openProjectPicker}>
           <span class="plus">+</span>
           <span>New session</span>
