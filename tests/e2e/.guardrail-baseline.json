@@ -1,5 +1,0 @@
-{
-  "generatedAt": "2026-02-19T10:20:25.776Z",
-  "note": "Baseline for known E2E internal-mutation guardrail hits. New hits fail check:e2e:guardrails.",
-  "allowedFingerprints": []
-}
