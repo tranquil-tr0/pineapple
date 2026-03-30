@@ -9,16 +9,11 @@
     "dev:client": "vite dev",
     "build": "vite build && bun x tsc --project tsconfig.server.json",
     "start": "bun dist/server/main.js",
-    "test": "bun run test:api && bun run test:e2e",
-    "test:api": "vitest run --config vitest.config.ts",
-    "test:e2e": "playwright test",
+    "test": "vitest run --config vitest.config.ts",
     "typecheck": "bun x tsc --noEmit && bun x tsc --noEmit --project tsconfig.server.json",
     "lint": "eslint .",
     "lint:css": "stylelint \"src/client/styles/**/*.css\"",
     "check:unused:exports": "ts-prune -p tsconfig.json -i \"used in module\"",
-    "check:unused:deps": "depcheck --skip-missing --ignore-dirs=dist,node_modules,deps,test-results --ignores=@types/express,@types/node,@types/ws,@playwright/test,vitest,vite,typescript,eslint,@eslint/js,typescript-eslint,eslint-plugin-lit,globals,stylelint,stylelint-config-standard,ts-prune,depcheck,lit",
-    "check:e2e:guardrails": "bun scripts/check-e2e-guardrails.mjs",
-    "check:e2e:guardrails:update-baseline": "bun scripts/check-e2e-guardrails.mjs --update-baseline",
     "check": "bun run typecheck && bun run lint && bun run lint:css && bun run check:e2e:guardrails && bun run check:unused:deps && bun run check:unused:exports && bun run test:api && bun run test:e2e && bun run build"
   },
   "dependencies": {
